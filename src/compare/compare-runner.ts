@@ -275,6 +275,13 @@ export async function compare(options: CompareOptions = {}): Promise<CompareSumm
     if (search) comparable.push({ reference, search });
   }
 
+  /** 같은 수업자료를 두 번 담지 않습니다. 먼저 온 것을 남깁니다. */
+  const dedupeById = <T extends { materialId: string }>(items: T[]): T[] => {
+    const seen = new Map<string, T>();
+    for (const item of items) if (!seen.has(item.materialId)) seen.set(item.materialId, item);
+    return [...seen.values()];
+  };
+
   for (const { reference, search } of comparable) {
     const usedIn: UsageSite[] = [];
     const taughtIn: ComparisonItem["taughtIn"] = [];
@@ -536,7 +543,9 @@ export async function compare(options: CompareOptions = {}): Promise<CompareSumm
       oldPattern: analysis.oldPattern,
       currentPattern: analysis.currentPattern,
       recommendedAlternative: analysis.recommendedAlternative,
-      lessons: found.sites.flatMap((site) => lessonsByZip.get(site.zipId) ?? []).slice(0, 5),
+      // 같은 수업자료가 여러 실습파일에 걸려 있으면 중복으로 들어옵니다.
+      // 사람이 보기에도 노이즈고, 화면에서는 React 가 같은 열쇠를 두 번 받습니다.
+      lessons: dedupeById(found.sites.flatMap((site) => lessonsByZip.get(site.zipId) ?? [])).slice(0, 5),
       taughtIn: [],
       usedIn: found.sites,
       official: looked?.found

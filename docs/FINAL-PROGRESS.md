@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P2 품질 강화 (E2E · 성능 · 코드 정리 · 재현성)** — 진행 중
+**P2-2 성능 · P2-3 코드 정리 · P2-4 재현성** — 진행 중
 
 ## 완료된 작업
 
@@ -65,7 +65,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 - [x] P1-6 자동 테스트 — 120 → 174건 확장
 
 ### P2 — 품질 강화
-- [ ] P2-1 Playwright E2E 검토/구현
+- [x] P2-1 Playwright E2E — 13건 (브라우저 캐시가 이미 있어 설치 비용 작음)
 - [ ] P2-2 성능 점검
 - [ ] P2-3 코드 정리
 - [ ] P2-4 재현성 검증
