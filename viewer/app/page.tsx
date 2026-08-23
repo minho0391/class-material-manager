@@ -17,16 +17,18 @@ import {
   COLLECT_LABEL,
   COLLECT_MEANING,
   getCollectStatus,
+  getDataHealth,
 } from "@/lib/data";
 
 export default async function HomePage() {
-  const [subjects, stats, learning, comparisons, study, collect] = await Promise.all([
+  const [subjects, stats, learning, comparisons, study, collect, health] = await Promise.all([
     getSubjects(),
     getStats(),
     getLearningList(),
     getComparisons(),
     getStudyGuides(),
     getCollectStatus(),
+    getDataHealth(),
   ]);
 
   // 눈여겨볼 것(그대로 사용 가능이 아닌 것)만 셉니다.
@@ -43,6 +45,51 @@ export default async function HomePage() {
     { label: "과목", value: stats.subjects },
     { label: "원본 파일", value: stats.files },
   ];
+
+  // ── 자료를 읽지 못했으면 그것부터 알립니다 ── (18단계)
+  //
+  // 조용히 빈 화면을 보여주면, 자료가 사라진 것인지 아직 안 만든 것인지 알 수 없습니다.
+  if (!health.ok) {
+    return (
+      <Box sx={{ maxWidth: "60ch" }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+          수업자료 아카이브
+        </Typography>
+
+        {health.problem === "unreadable" ? (
+          <Paper variant="outlined" sx={{ p: 3, borderColor: "error.main" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              ✗ 자료 파일을 읽지 못했습니다
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <code>data/index.json</code> 이 깨졌을 수 있습니다. 자료가 사라진 것은 아닙니다 —
+              파일 하나를 읽지 못한 것입니다.
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              백업으로 되돌릴 수 있습니다.
+            </Typography>
+            <Box component="pre" sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.8rem" }}>
+              npm run restore
+            </Box>
+          </Paper>
+        ) : (
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              아직 자료가 없습니다
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              터미널에서 아래를 차례로 실행하면 이 자리에 수업자료가 나타납니다.
+            </Typography>
+            <Box component="pre" sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.8rem" }}>
+{`node src/index.ts auth      # 처음 한 번만
+node src/index.ts extract
+npm run refresh`}
+            </Box>
+          </Paper>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box>

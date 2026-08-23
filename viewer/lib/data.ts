@@ -80,22 +80,59 @@ interface Cache {
   references: Reference[];
   /** 검색용 본문. docId 또는 slug 를 열쇠로 합니다. */
   bodies: Map<string, string>;
+  /** 자료를 읽지 못했다면 그 사정 (18단계) */
+  problem?: DataProblem;
 }
 
 let cache: Cache | null = null;
 
-/** index.json 을 읽어 자료 목록과 갱신 시각을 얻습니다. */
-async function readIndexFile(): Promise<{ stamp: string; materials: Material[] }> {
-  const raw = await readFile(join(DATA_DIR, "index.json"), "utf8");
-  const parsed = JSON.parse(raw) as {
-    updatedAt: string;
-    entries: Record<string, Material>;
-  };
+/**
+ * 자료를 읽지 못했을 때의 사정.
+ *
+ * ■ 왜 나누는가 (18단계)
+ *
+ * 예전에는 `index.json` 을 읽다 실패하면 그대로 던져서 **화면 전체가 500** 이 됐습니다.
+ * 파일 하나가 깨졌을 뿐인데 아무것도 볼 수 없었습니다.
+ *
+ * 그렇다고 조용히 빈 목록을 돌려주면 더 나쁩니다 —
+ * 자료가 사라진 것처럼 보이면서 **아무 문제 없는 척**하게 되니까요.
+ *
+ * 그래서 무슨 일인지 구분해 들고 다니다가 화면에 그대로 알립니다.
+ */
+export type DataProblem =
+  /** 아직 만든 적이 없습니다. 오류가 아니라 "시작 전" 입니다 */
+  | "missing"
+  /** 있는데 읽지 못했습니다. 깨졌을 수 있습니다 */
+  | "unreadable";
 
-  return {
-    stamp: parsed.updatedAt,
-    materials: Object.values(parsed.entries),
-  };
+/** index.json 을 읽어 자료 목록과 갱신 시각을 얻습니다. */
+async function readIndexFile(): Promise<{
+  stamp: string;
+  materials: Material[];
+  problem?: DataProblem;
+}> {
+  let raw: string;
+  try {
+    raw = await readFile(join(DATA_DIR, "index.json"), "utf8");
+  } catch {
+    // 아직 한 번도 수집하지 않은 상태입니다. 화면은 "시작하는 법" 을 알려 주면 됩니다.
+    return { stamp: "", materials: [], problem: "missing" };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      updatedAt: string;
+      entries: Record<string, Material>;
+    };
+
+    return {
+      stamp: parsed.updatedAt,
+      materials: Object.values(parsed.entries ?? {}),
+    };
+  } catch {
+    // 파일은 있는데 읽지 못했습니다. **이것은 조용히 넘어가면 안 됩니다.**
+    return { stamp: "", materials: [], problem: "unreadable" };
+  }
 }
 
 /** 참고자료(공식 문서 요약)를 전부 읽습니다. */
@@ -183,7 +220,13 @@ async function readBodies(materials: Material[], references: Reference[]): Promi
  * 브라우저를 새로고침하는 것만으로 최신 내용이 반영됩니다.
  */
 export async function loadAll(): Promise<Cache> {
-  const { stamp, materials } = await readIndexFile();
+  const { stamp, materials, problem } = await readIndexFile();
+
+  // 자료를 읽지 못했으면 캐시에 담지 않습니다.
+  // 담아 두면 파일을 고친 뒤에도 계속 "없다" 고 답하게 됩니다.
+  if (problem) {
+    return { stamp: "", materials: [], references: await readReferences(), bodies: new Map(), problem };
+  }
 
   if (cache && cache.stamp === stamp) return cache;
 
@@ -192,6 +235,25 @@ export async function loadAll(): Promise<Cache> {
 
   cache = { stamp, materials, references, bodies };
   return cache;
+}
+
+/**
+ * 자료가 지금 어떤 상태인지. (18단계)
+ *
+ * 화면이 "왜 비어 있는지" 를 사용자에게 말해 줄 수 있게 합니다.
+ * 조용히 빈 화면을 보여주면, 자료가 사라진 것인지 아직 안 만든 것인지 알 수 없습니다.
+ */
+export async function getDataHealth(): Promise<{
+  ok: boolean;
+  problem?: DataProblem;
+  materialCount: number;
+}> {
+  const all = await loadAll();
+  return {
+    ok: !all.problem && all.materials.length > 0,
+    problem: all.problem,
+    materialCount: all.materials.length,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

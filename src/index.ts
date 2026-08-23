@@ -1110,8 +1110,8 @@ function showHelp(): void {
   node src/index.ts <명령> [옵션]
 
 명령:
-  extract    기준 문서에서 링크를 뽑아 data/links.json 에 저장합니다
-  auth       브라우저에서 Google 계정 인증을 받습니다 (처음 한 번만)
+  extract        기준 문서에서 링크를 뽑아 data/links.json 에 저장합니다
+  auth           브라우저에서 Google 계정 인증을 받습니다 (처음 한 번만)
   collect        Google 문서를 내려받아 data/materials/_inbox/ 에 저장합니다
   collect-files  PDF·zip·이미지·폴더 목록·게시형 문서를 수집합니다
   extract-zip    이미 받아둔 zip 을 다시 읽어 안의 소스코드를 본문에 싣습니다
@@ -1126,6 +1126,20 @@ function showHelp(): void {
   restore        백업으로 되돌립니다
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다
+
+처음이라면 이 순서로:
+  1. npm install
+  2. node src/index.ts auth        Google 계정 인증 (처음 한 번만)
+  3. node src/index.ts extract     기준 문서에서 링크 뽑기
+  4. npm run refresh               나머지를 한 번에 (수집 → 분류 → 연결 → 비교 → 학습 설명)
+  5. cd viewer && npm install && npm run dev
+                                   http://localhost:3000 에서 봅니다
+
+평소에는:
+  npm run refresh                  이것만 돌리면 됩니다
+  npm run refresh -- --dry-run     무엇이 바뀔지 먼저 봅니다 (파일은 그대로)
+  npm run security-check           바깥에 내놓기 전에 확인합니다
+  npm test                         자동 테스트
 
 compare 옵션:
   (옵션 없음)      전체를 견주어 data/comparisons.json 에 저장합니다

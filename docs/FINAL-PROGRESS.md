@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P1-3 CLI 사용성** — 진행 중
+**P1-5 Viewer 최종 사용성** — 진행 중
 
 ## 완료된 작업
 
@@ -59,8 +59,8 @@ remote  https://github.com/minho0391/class-material-manager (private)
 ### P1 — v1 완성
 - [x] P1-1 실패 문서 우선 복구 — 순서만 바꿈(건너뛰기 아님) · 이름 충돌 승자 안정화
 - [x] P1-2 backup / restore — 3.8MB · refresh 전 자동 백업 · 실제 손상 복구 검증
-- [ ] P1-3 CLI 사용성 (help 정리)
-- [ ] P1-4 Viewer 오류 fallback
+- [x] P1-3 CLI 사용성 — 명령 16개 도움말 일치 확인 · 처음 순서/Viewer 실행 추가
+- [x] P1-4 Viewer 오류 fallback — 500 → 안내 화면 (없음/못 읽음 구분)
 - [ ] P1-5 Viewer 최종 사용성
 - [ ] P1-6 자동 테스트 확장
 
@@ -87,13 +87,13 @@ remote  https://github.com/minho0391/class-material-manager (private)
 ## 마지막 테스트 결과
 
 ```
-165건 통과 / 0건 실패 (P1-2 완료)
+174건 통과 / 0건 실패 (P1-4 완료)
 ```
 
 ## 마지막 정상 commit
 
 ```
-716da44  보안 검사에 allowlist 표시 (P0-6) — origin/main 에 push 됨
+c63e829  백업과 복구 (P1-2) — origin/main 에 push 됨
 ```
 
 ## 다음 세션이 이어서 해야 할 일
