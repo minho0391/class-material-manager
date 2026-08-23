@@ -33,6 +33,7 @@ import { contentHash } from "../detect/hash.ts";
 import { readDocStatus } from "../enrich/doc-status.ts";
 import { describeRateLimit, fetchGithub } from "../net/github.ts";
 import * as log from "../utils/logger.ts";
+import { writeJsonAtomic } from "../store/atomic-write.ts";
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -85,7 +86,7 @@ async function saveLookups(results: Map<string, LookupResult>): Promise<void> {
   }
 
   const data: LookupData = { version: 1, updatedAt: new Date().toISOString(), results: sorted };
-  await writeFile(DOC_LOOKUP_FILE, JSON.stringify(data, null, 2), "utf8");
+  await writeJsonAtomic(DOC_LOOKUP_FILE, data);
 }
 
 /**

@@ -16,6 +16,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { DATA_DIR, INDEX_FILE } from "../config/paths.ts";
 import type { ResourceKind } from "../collect/url-normalizer.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /** 자료 하나에 대한 기록 */
 export interface IndexEntry {
@@ -144,5 +145,5 @@ export async function saveIndex(data: IndexData): Promise<void> {
     entries: sorted,
   };
 
-  await writeFile(INDEX_FILE, JSON.stringify(output, null, 2), "utf8");
+  await writeJsonAtomic(INDEX_FILE, output);
 }

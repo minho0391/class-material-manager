@@ -21,6 +21,7 @@ import { DATA_DIR, LINKS_FILE } from "../config/paths.ts";
 import { fetchAndCleanHtml } from "./docs-fetcher.ts";
 import { extractLinks, type UniqueResource } from "./link-extractor.ts";
 import { isCollectible, type ResourceKind } from "./url-normalizer.ts";
+import { writeJsonAtomic } from "../store/atomic-write.ts";
 
 /** 링크 추출 결과 */
 export interface LinkExtractResult {
@@ -103,7 +104,7 @@ export async function extractAndSaveLinks(): Promise<LinkExtractResult> {
     ),
   };
 
-  await writeFile(LINKS_FILE, JSON.stringify(output, null, 2), "utf8");
+  await writeJsonAtomic(LINKS_FILE, output);
 
   return {
     ok: true,

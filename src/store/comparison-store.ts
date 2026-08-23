@@ -14,6 +14,7 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { COMPARISONS_FILE, DATA_DIR } from "../config/paths.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /**
  * 비교 결과 상태.
@@ -174,7 +175,7 @@ export async function saveComparisons(data: ComparisonData): Promise<void> {
       a.topic.localeCompare(b.topic, "ko"),
   );
 
-  await writeFile(COMPARISONS_FILE, JSON.stringify({ ...data, items }, null, 2), "utf8");
+  await writeJsonAtomic(COMPARISONS_FILE, { ...data, items });
 }
 
 /** 비교 결과를 읽습니다. 아직 만든 적이 없으면 null 입니다. */

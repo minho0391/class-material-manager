@@ -13,6 +13,7 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { FAILED_FILE } from "../config/paths.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /** 실패 기록 하나 */
 export interface FailureRecord {
@@ -56,11 +57,11 @@ export async function mergeFailures(
 
   const failures = [...merged.values()];
 
-  await writeFile(
-    FAILED_FILE,
-    JSON.stringify({ updatedAt: attemptedAt, count: failures.length, failures }, null, 2),
-    "utf8",
-  );
+  await writeJsonAtomic(FAILED_FILE, {
+    updatedAt: attemptedAt,
+    count: failures.length,
+    failures,
+  });
 
   return failures.length;
 }

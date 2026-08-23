@@ -25,6 +25,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { RAW_DIR } from "../config/paths.ts";
+import { writeFileAtomic } from "../store/atomic-write.ts";
 
 /**
  * 한 번에 기다릴 최대 시간 (밀리초). 응답이 없으면 포기합니다.
@@ -157,7 +158,7 @@ export function stripInlineImages(html: string): { html: string; removed: number
 export async function saveRawHtml(docId: string, html: string): Promise<string> {
   await mkdir(RAW_DIR, { recursive: true });
   const path = join(RAW_DIR, `${docId}.html`);
-  await writeFile(path, html, "utf8");
+  await writeFileAtomic(path, html);
   return path;
 }
 

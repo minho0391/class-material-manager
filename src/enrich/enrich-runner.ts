@@ -42,6 +42,7 @@ import { saveCollectStatus } from "../store/collect-status-store.ts";
 import { ruleBasedSummarizer, type DocSummary, type Summarizer } from "./summarizer.ts";
 import { collectMaterialText, matchTopics, type MatchedTopic } from "./topic-matcher.ts";
 import * as log from "../utils/logger.ts";
+import { writeFileAtomic } from "../store/atomic-write.ts";
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -368,19 +369,6 @@ async function countExistingSummaries(directory: string): Promise<number> {
   }
 }
 
-/**
- * 파일을 **다 쓴 뒤에 바꿔치기** 합니다.
- *
- * 그냥 덮어쓰면 쓰는 도중에 멈췄을 때 반쯤 쓰인 파일이 남습니다.
- * 옆에 임시 파일로 다 쓴 다음 이름만 바꾸면 그럴 일이 없습니다 —
- * 파일은 언제나 **예전 것 아니면 새것**이지, 그 중간이 되지 않습니다.
- */
-async function writeFileAtomic(path: string, content: string): Promise<void> {
-  const temporary = `${path}.tmp`;
-  await writeFile(temporary, content, "utf8");
-  await rename(temporary, path);
-}
-
 /** 과목 하나를 처리합니다. */
 async function enrichSubject(
   source: DocSource,
@@ -567,7 +555,7 @@ async function enrichSubject(
         // 공식 문서도, 수업자료 쪽 연결도 그대로입니다. 파일을 건드리지 않습니다.
         result.unchanged++;
       } else {
-        await writeFile(path, content, "utf8");
+        await writeFileAtomic(path, content);
         if (previous === null) result.created++;
         else if (documentChanged) result.documentChanged++;
         else if (!hadFingerprint) result.fingerprinted++;

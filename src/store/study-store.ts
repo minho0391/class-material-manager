@@ -22,6 +22,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA_DIR } from "../config/paths.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /** 학습 설명 파일 자리 */
 export const STUDY_GUIDES_FILE = join(DATA_DIR, "study-guides.json");
@@ -168,7 +169,7 @@ export async function saveStudyGuides(data: StudyData): Promise<void> {
       a.title.localeCompare(b.title, "ko"),
   );
 
-  await writeFile(STUDY_GUIDES_FILE, JSON.stringify({ ...data, guides, materials }, null, 2), "utf8");
+  await writeJsonAtomic(STUDY_GUIDES_FILE, { ...data, guides, materials });
 }
 
 /** 학습 설명을 읽습니다. 아직 만든 적이 없으면 null 입니다. */

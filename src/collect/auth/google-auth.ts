@@ -24,6 +24,7 @@ import { authenticate } from "@google-cloud/local-auth";
 import { UserRefreshClient } from "google-auth-library";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { CREDENTIALS_FILE, DATA_DIR, TOKEN_FILE } from "../../config/paths.ts";
+import { writeJsonAtomic } from "../../store/atomic-write.ts";
 
 /**
  * 요청할 권한 범위.
@@ -140,7 +141,7 @@ async function saveToken(secrets: ClientSecrets, refreshToken: string): Promise<
     refresh_token: refreshToken,
   };
 
-  await writeFile(TOKEN_FILE, JSON.stringify(payload, null, 2), "utf8");
+  await writeJsonAtomic(TOKEN_FILE, payload);
 }
 
 /**

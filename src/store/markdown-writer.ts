@@ -25,6 +25,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { DATA_DIR, HISTORY_DIR, MATERIALS_DIR } from "../config/paths.ts";
 import type { IndexEntry } from "./index-store.ts";
+import { writeBytesAtomic, writeFileAtomic } from "./atomic-write.ts";
 
 /**
  * 과목 분류 전에 자료를 모아두는 곳.
@@ -171,7 +172,7 @@ export async function writeBinaryFile(
   const absolutePath = join(FILES_DIR, fileName);
 
   await mkdir(FILES_DIR, { recursive: true });
-  await writeFile(absolutePath, bytes);
+  await writeBytesAtomic(absolutePath, bytes);
 
   return absolutePath.slice(DATA_DIR.length + 1).replace(/\\/g, "/");
 }
@@ -218,7 +219,7 @@ export async function writeMaterial(entry: IndexEntry, body: string): Promise<st
   const absolutePath = join(INBOX_DIR, fileName);
 
   await mkdir(INBOX_DIR, { recursive: true });
-  await writeFile(absolutePath, `${buildFrontMatter(entry)}\n\n${body}`, "utf8");
+  await writeFileAtomic(absolutePath, `${buildFrontMatter(entry)}\n\n${body}`);
 
   // data/ 를 기준으로 한 상대 경로로 바꿔 돌려줍니다.
   return absolutePath.slice(DATA_DIR.length + 1).replace(/\\/g, "/");
@@ -241,7 +242,7 @@ export async function rewriteMaterial(entry: IndexEntry, body: string): Promise<
   const absolutePath = join(DATA_DIR, entry.filePath);
 
   await mkdir(dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, `${buildFrontMatter(entry)}\n\n${body}`, "utf8");
+  await writeFileAtomic(absolutePath, `${buildFrontMatter(entry)}\n\n${body}`);
 
   return entry.filePath;
 }

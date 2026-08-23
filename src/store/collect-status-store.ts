@@ -16,6 +16,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA_DIR } from "../config/paths.ts";
 import type { CollectStatus } from "../enrich/collect-status.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /** 상태 파일 자리 */
 export const COLLECT_STATUS_FILE = join(DATA_DIR, "collect-status.json");
@@ -114,9 +115,5 @@ export async function saveCollectStatus(
   const lastSuccessAt = succeeded ? data.checkedAt : previous?.lastSuccessAt;
 
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(
-    COLLECT_STATUS_FILE,
-    JSON.stringify({ version: 1, ...data, lastSuccessAt }, null, 2),
-    "utf8",
-  );
+  await writeJsonAtomic(COLLECT_STATUS_FILE, { version: 1, ...data, lastSuccessAt });
 }

@@ -19,6 +19,7 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { DATA_DIR, LEARNING_FILE } from "../config/paths.ts";
+import { writeJsonAtomic } from "./atomic-write.ts";
 
 /** 학습자료에 실린 실습 코드 파일 하나 */
 export interface LearningSourceFile {
@@ -109,7 +110,7 @@ export async function saveLearning(data: LearningData): Promise<void> {
     (a, b) => a.subject.localeCompare(b.subject) || a.title.localeCompare(b.title, "ko"),
   );
 
-  await writeFile(LEARNING_FILE, JSON.stringify({ ...data, documents }, null, 2), "utf8");
+  await writeJsonAtomic(LEARNING_FILE, { ...data, documents });
 }
 
 /** 통합 학습자료를 읽습니다. 아직 만든 적이 없으면 null 입니다. (오류가 아닙니다) */
