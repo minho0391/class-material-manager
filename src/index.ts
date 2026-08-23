@@ -40,6 +40,7 @@ import { loadCollectStatus } from "./store/collect-status-store.ts";
 import { COLLECT_LABEL, COLLECT_MARK, COLLECT_MEANING } from "./enrich/collect-status.ts";
 import { describeRateLimit, hasGithubToken } from "./net/github.ts";
 import { FAILURE_LABEL, type FailureType } from "./net/failure.ts";
+import { securityCheck, summarize } from "./security/security-check.ts";
 import { PRIORITY_LABEL, PRIORITY_MEANING } from "./study/study-builder.ts";
 import * as log from "./utils/logger.ts";
 
@@ -814,6 +815,90 @@ async function runRefresh(args: string[]): Promise<void> {
  *
  * 새로 판정하지 않습니다. 14단계가 정해 둔 것을 사람이 읽을 말로 바꿀 뿐입니다.
  */
+/**
+ * 18단계 — "이대로 바깥에 내놔도 되나" 를 확인합니다.
+ *
+ * **찾아낸 값을 그대로 보여주지 않습니다.** 어디에 있는지와 가린 형태만 알립니다.
+ * 찾아낸 비밀을 화면과 로그에 다시 뿌리면, 막으려던 것을 우리가 하는 셈입니다.
+ */
+async function runSecurityCheck(args: string[]): Promise<void> {
+  const skipData = args.includes("--skip-data");
+
+  log.step("민감정보를 살펴봅니다");
+  log.detail("찾아낸 값은 가려서 보여줍니다 — 값 자체를 화면에 뿌리지 않습니다");
+  log.detail("규칙으로 찾는 일이라 오탐이 있을 수 있습니다. '확정' 이 아니라 '의심' 입니다");
+  if (skipData) log.detail("--skip-data: 자료(data/)는 건너뛰고 git 공개 대상만 봅니다");
+
+  const report = await securityCheck({ skipData });
+
+  // ── 1. git 공개 대상 ──
+  log.step("git 이 바깥으로 내보낼 것");
+
+  if (!report.inGitRepo) {
+    log.warn("git 저장소가 아닙니다. 이 검사는 건너뜁니다");
+  } else {
+    log.detail(`저장소 경계   : ${report.repoRoot}`);
+    log.detail(`추적 중인 파일: ${report.trackedCount}개`);
+    log.detail(`data/ 무시 여부: ${report.dataIgnored ? "무시됨 ✓" : "추적됨 ✗"}`);
+
+    if (report.tracked.length === 0) {
+      log.success("git 이 추적하는 파일에서 민감정보 의심 문자열을 찾지 못했습니다");
+    } else {
+      log.error(`git 이 추적하는 파일에서 ${report.tracked.length}건이 의심됩니다`);
+      for (const finding of report.tracked.slice(0, 20)) {
+        log.info(`  [${finding.label}] ${finding.file}:${finding.line}`);
+        log.detail(`    ${finding.masked}`);
+      }
+      if (report.tracked.length > 20) {
+        log.detail(`  … 그밖에 ${report.tracked.length - 20}건`);
+      }
+    }
+  }
+
+  // ── 2. 자료 자체 ──
+  if (!skipData) {
+    log.step("내 컴퓨터의 수업자료");
+
+    if (report.data.length === 0) {
+      log.success("자료에서 민감정보 의심 문자열을 찾지 못했습니다");
+    } else {
+      const found = summarize(report.data);
+
+      log.warn(`자료에서 ${found.total}건이 의심됩니다 (확실 ${found.high} · 보통 ${found.medium})`);
+      for (const entry of found.byLabel) {
+        log.detail(`  ${entry.label.padEnd(28)} ${entry.count}건`);
+      }
+
+      log.info("");
+      log.detail("어디에 있는지 (값은 가렸습니다)");
+      for (const finding of report.data.slice(0, 10)) {
+        log.detail(`  [${finding.label}] ${finding.file}:${finding.line} — ${finding.masked}`);
+      }
+      if (report.data.length > 10) log.detail(`  … 그밖에 ${report.data.length - 10}건`);
+
+      log.info("");
+      if (report.dataIgnored) {
+        // 이 구분이 이 명령의 핵심입니다.
+        log.detail("자료에는 의심스러운 것이 있지만, data/ 는 git 추적 대상이 아닙니다");
+        log.detail("→ 지금 git 으로는 새어 나가지 않습니다");
+      } else {
+        log.error("data/ 가 git 추적 대상입니다. .gitignore 를 확인하세요");
+      }
+      log.detail("자료를 다른 곳으로 옮기거나 공유하기 전에는 사람이 직접 확인하세요");
+      log.detail("원본 수업자료는 건드리지 않았습니다 — 자동으로 고치거나 지우지 않습니다");
+    }
+  }
+
+  // ── 판정 ──
+  log.info("");
+  if (report.passed) {
+    log.success("공개 안전성 검사 통과 — git 공개 대상에 민감정보 의심 문자열이 없습니다");
+  } else {
+    log.error("공개 안전성 검사 실패 — 커밋·push 전에 위 항목을 확인하세요");
+    process.exitCode = 1;
+  }
+}
+
 async function runStudy(args: string[]): Promise<void> {
   const options = {
     force: args.includes("--force"),
@@ -963,6 +1048,7 @@ function showHelp(): void {
   build-learning 수업 설명·실습 코드·공식 문서를 한 편으로 엮습니다
   compare        수업 당시 방식이 지금도 맞는지 공식 문서와 견줍니다
   study          견준 결과를 '다시 공부할 거리' 로 옮깁니다
+  security-check 바깥에 내놔도 되는지 민감정보를 살펴봅니다
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다
 
@@ -975,6 +1061,10 @@ study 옵션:
   (옵션 없음)      비교 결과가 바뀌었을 때만 학습 설명을 다시 만듭니다
   --force          비교 결과가 그대로여도 다시 만듭니다 (설명 말투를 고쳤을 때)
   --dry-run        결과만 보여주고 파일은 쓰지 않습니다
+
+security-check 옵션:
+  (옵션 없음)      자료와 git 공개 대상을 모두 살펴봅니다
+  --skip-data      자료(data/)는 건너뛰고 git 공개 대상만 빠르게 봅니다
 
 refresh 옵션:
   (옵션 없음)      전체를 최신 상태로 갱신합니다
@@ -1056,6 +1146,9 @@ async function main(): Promise<void> {
       break;
     case "study":
       await runStudy(process.argv.slice(3));
+      break;
+    case "security-check":
+      await runSecurityCheck(process.argv.slice(3));
       break;
     case "help":
     case "--help":
