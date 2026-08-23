@@ -21,7 +21,7 @@
  * 파일을 열면 사람이 바로 읽을 수 있고, 프로그램도 정보를 꺼내 쓸 수 있습니다.
  * 나중에 Next.js 로 뷰어를 만들 때도 그대로 씁니다.
  */
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { DATA_DIR, HISTORY_DIR, MATERIALS_DIR } from "../config/paths.ts";
 import type { IndexEntry } from "./index-store.ts";

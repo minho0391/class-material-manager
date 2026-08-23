@@ -15,7 +15,7 @@
  * 강사님이 기준 문서에 새 자료 링크를 추가하면, links.json 을 다시 만들어야
  * 그 자료가 수집 대상 목록에 들어옵니다. 이것을 건너뛰면 새 자료를 영영 못 봅니다.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { BASE_DOCUMENT_ID } from "../config/base-document.ts";
 import { DATA_DIR, LINKS_FILE } from "../config/paths.ts";
 import { fetchAndCleanHtml } from "./docs-fetcher.ts";

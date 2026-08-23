@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P2-2 성능 · P2-3 코드 정리 · P2-4 재현성** — 진행 중
+**P3 마무리 (README · FUTURE · 최종 검증)** — 진행 중
 
 ## 완료된 작업
 
@@ -66,9 +66,9 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ### P2 — 품질 강화
 - [x] P2-1 Playwright E2E — 13건 (브라우저 캐시가 이미 있어 설치 비용 작음)
-- [ ] P2-2 성능 점검
-- [ ] P2-3 코드 정리
-- [ ] P2-4 재현성 검증
+- [x] P2-2 성능 점검 — 명백한 병목 없음 (파일 캐시·증분 갱신이 이미 있음)
+- [x] P2-3 코드 정리 — 죽은 함수 2개 · 미사용 import 16파일
+- [x] P2-4 재현성 — 연속 3회 refresh 에서 내용 동일 (시각만 바뀜)
 
 ### P3 — 마무리
 - [ ] P3-1 README FINAL
@@ -87,13 +87,13 @@ remote  https://github.com/minho0391/class-material-manager (private)
 ## 마지막 테스트 결과
 
 ```
-174건 통과 / 0건 실패 (P1-4 완료)
+174건 + E2E 13건 통과 (P2 완료)
 ```
 
 ## 마지막 정상 commit
 
 ```
-c63e829  백업과 복구 (P1-2) — origin/main 에 push 됨
+e659198  Playwright E2E (P2-1) — origin/main 에 push 됨
 ```
 
 ## 다음 세션이 이어서 해야 할 일

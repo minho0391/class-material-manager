@@ -9,15 +9,13 @@
  *   node src/index.ts auth        브라우저에서 Google 계정 인증 (한 번만)
  *   node src/index.ts help        도움말
  */
-import { mkdir, writeFile } from "node:fs/promises";
 import { BASE_DOCUMENT_ID, BASE_DOCUMENT_NAME } from "./config/base-document.ts";
-import { DATA_DIR, LINKS_FILE, TOKEN_FILE } from "./config/paths.ts";
+import { LINKS_FILE, TOKEN_FILE } from "./config/paths.ts";
 import { extractAndSaveLinks } from "./collect/link-runner.ts";
 import { isCollectible, type ResourceKind } from "./collect/url-normalizer.ts";
 import {
   AuthError,
   authorize,
-  authorizedFetch,
   verifyConnection,
 } from "./collect/auth/google-auth.ts";
 import { collect, type CollectOptions } from "./collect/collector.ts";

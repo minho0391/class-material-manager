@@ -17,7 +17,7 @@
  * 뷰어는 "읽어서 보여주기만 한다"는 원칙을 지키는 편이 낫고,
  * 골라낸 코드를 다 합쳐도 156KB 라 부담이 없어 여기에 담아 둡니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { DATA_DIR, LEARNING_FILE } from "../config/paths.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";
 

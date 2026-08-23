@@ -11,7 +11,7 @@
  */
 import { mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { DATA_DIR, MATERIALS_DIR } from "../config/paths.ts";
+import { DATA_DIR } from "../config/paths.ts";
 import { loadIndex, saveIndex, type IndexEntry } from "../store/index-store.ts";
 import { classify, type ClassifyResult, type ClassifyRule } from "./classifier.ts";
 
@@ -141,7 +141,3 @@ export async function applyClassification(plan: ClassifySummary): Promise<Classi
   return { ...plan, moved, errors };
 }
 
-/** 과목 폴더가 실제로 만들어질 위치 (출력용) */
-export function subjectFolderPath(subject: string): string {
-  return join(MATERIALS_DIR, subject);
-}

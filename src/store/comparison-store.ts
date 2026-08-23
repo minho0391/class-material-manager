@@ -12,7 +12,7 @@
  * 실습 코드의 package.json 에 적힌 버전처럼 **확인 가능한 사실**만 근거로 씁니다.
  * 근거가 모자라면 확정하지 않고 `REVIEW_REQUIRED` 로 남깁니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { COMPARISONS_FILE, DATA_DIR } from "../config/paths.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";
 

@@ -19,7 +19,7 @@
  * 게다가 둘은 바뀌는 때가 다릅니다 — 판정은 공식 문서가 바뀔 때,
  * 설명은 말투나 template 을 고칠 때 바뀝니다. 따로 두면 각자 갱신할 수 있습니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA_DIR } from "../config/paths.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";

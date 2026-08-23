@@ -12,7 +12,7 @@
  * **토큰을 적지 않습니다.** 토큰을 썼는지 여부(`usedToken`)만 적습니다.
  * 이 파일은 사람이 열어 볼 수 있어야 하고, 열어도 위험한 것이 없어야 합니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA_DIR } from "../config/paths.ts";
 import type { CollectStatus } from "../enrich/collect-status.ts";

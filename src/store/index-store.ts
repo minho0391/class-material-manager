@@ -13,7 +13,7 @@
  * 422건 규모에서는 파일 하나로 충분히 빠르고, 무엇보다 **열어보면 바로 보입니다.**
  * 배우는 목적이라면 눈에 보이는 편이 훨씬 낫습니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { DATA_DIR, INDEX_FILE } from "../config/paths.ts";
 import type { ResourceKind } from "../collect/url-normalizer.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";

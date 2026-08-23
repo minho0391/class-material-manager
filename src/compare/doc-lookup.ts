@@ -20,7 +20,7 @@
  * 찾은 결과(못 찾은 것도 포함)를 `data/doc-lookup.json` 에 적어 둡니다.
  * `refresh` 를 돌릴 때마다 같은 주소를 다시 두드리지 않습니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { DATA_DIR, DOC_LOOKUP_FILE } from "../config/paths.ts";
 import {
   candidatePaths,

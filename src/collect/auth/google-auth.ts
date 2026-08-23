@@ -22,7 +22,7 @@
  */
 import { authenticate } from "@google-cloud/local-auth";
 import { UserRefreshClient } from "google-auth-library";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { CREDENTIALS_FILE, DATA_DIR, TOKEN_FILE } from "../../config/paths.ts";
 import { writeJsonAtomic } from "../../store/atomic-write.ts";
 

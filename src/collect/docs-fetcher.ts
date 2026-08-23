@@ -22,7 +22,7 @@
  * 이미지(base64) 입니다. 그래서 받자마자 이미지를 지우고 나머지만 씁니다.
  * 지우고 나면 1MB 아래로 줄어듭니다.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { RAW_DIR } from "../config/paths.ts";
 import { writeFileAtomic } from "../store/atomic-write.ts";

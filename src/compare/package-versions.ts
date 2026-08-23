@@ -26,7 +26,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { DATA_DIR, ROOT_DIR } from "../config/paths.ts";
+import { ROOT_DIR } from "../config/paths.ts";
 import { readPracticeCode } from "../learn/practice-reader.ts";
 import type { IndexEntry } from "../store/index-store.ts";
 
@@ -143,11 +143,4 @@ export async function readProjectVersions(): Promise<Map<string, string>> {
   }
 
   return versions;
-}
-
-/** data 폴더 기준 상대 경로로 (화면에서 찾아가기 쉽게) */
-export function relativeToData(absolutePath: string): string {
-  return absolutePath.startsWith(DATA_DIR)
-    ? absolutePath.slice(DATA_DIR.length + 1).replace(/\\/g, "/")
-    : absolutePath;
 }

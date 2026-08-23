@@ -11,7 +11,7 @@
  * 섞어 두면 장부가 비대해지고, 연결 규칙을 손볼 때마다 장부 전체를 다시 써야 합니다.
  * 그래서 파일을 나눕니다. index.json 은 8단계 때와 똑같이 유지됩니다.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { DATA_DIR, RELATIONS_FILE } from "../config/paths.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";
 

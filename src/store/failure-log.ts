@@ -11,7 +11,7 @@
  * 어떤 자료를 왜 수집하지 못했는지가 계속 남아 있어야
  * 나중에 "이건 왜 없지?" 하고 헤매지 않습니다.
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { FAILED_FILE } from "../config/paths.ts";
 import { writeJsonAtomic } from "./atomic-write.ts";
 

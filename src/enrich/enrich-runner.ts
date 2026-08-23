@@ -13,7 +13,7 @@
  * 원문을 그대로 담지 않습니다. 핵심 설명·학습 포인트·예제 하나·출처 주소만 남깁니다.
  * (React 의 useState 문서 하나가 38KB 인데, 요약하면 1KB 남짓입니다)
  */
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { contentHash } from "../detect/hash.ts";
 import { readDocStatus, type DocStatus } from "./doc-status.ts";
@@ -44,7 +44,6 @@ import { collectMaterialText, matchTopics, type MatchedTopic } from "./topic-mat
 import * as log from "../utils/logger.ts";
 import { writeFileAtomic } from "../store/atomic-write.ts";
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface EnrichOptions {
   /** 특정 과목만 처리하고 싶을 때 */
