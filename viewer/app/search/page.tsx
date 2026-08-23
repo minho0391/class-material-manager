@@ -29,7 +29,7 @@ export default async function SearchPage({
   if (query.length < 2) {
     return (
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
           검색
         </Typography>
         <Typography color="text.secondary">
@@ -50,7 +50,7 @@ export default async function SearchPage({
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         “{query}” 검색 결과
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>

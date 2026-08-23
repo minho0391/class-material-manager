@@ -37,7 +37,7 @@ export function PracticeCode({ practice }: { practice: LearningPractice[] }) {
 
   return (
     <Box sx={{ mt: 5, maxWidth: "72ch" }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
         💻 관련 실습 코드
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>

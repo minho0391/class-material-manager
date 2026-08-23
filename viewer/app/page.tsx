@@ -52,7 +52,7 @@ export default async function HomePage() {
   if (!health.ok) {
     return (
       <Box sx={{ maxWidth: "60ch" }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
           수업자료 아카이브
         </Typography>
 
@@ -93,7 +93,7 @@ npm run refresh`}
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         수업자료 아카이브
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 4 }}>
@@ -110,6 +110,7 @@ npm run refresh`}
           >
             <Typography
               variant="h4"
+              component="p"
              
               sx={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}
             >
@@ -130,7 +131,7 @@ npm run refresh`}
       {learning.length > 0 && (
         <Card variant="outlined" sx={{ mb: 5, borderColor: "primary.main" }}>
           <NavCardArea href="/learn" sx={{ p: 3, alignItems: "flex-start" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
               🎓 통합 학습자료 {learning.length}편부터 시작하세요
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -179,7 +180,7 @@ npm run refresh`}
       {relearnCount > 0 && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <NavCardArea href="/study" sx={{ p: 3, alignItems: "flex-start" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
               📚 다시 공부하기 — 먼저 볼 자료 {relearnCount}건
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -194,7 +195,7 @@ npm run refresh`}
       {checkCount > 0 && (
         <Card variant="outlined" sx={{ mb: 5 }}>
           <NavCardArea href="/compare" sx={{ p: 3, alignItems: "flex-start" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
               ⚖️ 수업 방식 점검 — 다시 볼 것 {checkCount}건
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -207,7 +208,7 @@ npm run refresh`}
       )}
 
       {/* ── 과목별 카드 ── */}
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 2 }}>
         과목
       </Typography>
 

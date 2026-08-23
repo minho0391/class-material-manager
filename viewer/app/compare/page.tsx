@@ -224,7 +224,7 @@ export default async function ComparePage({
   if (items.length === 0) {
     return (
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
           수업 방식 점검
         </Typography>
         <Typography color="text.secondary">
@@ -270,7 +270,7 @@ export default async function ComparePage({
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         ⚖️ 수업 방식 점검
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 1 }}>

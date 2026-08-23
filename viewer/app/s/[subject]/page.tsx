@@ -43,7 +43,7 @@ export default async function SubjectPage({
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         {subjectLabel(subject)}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>

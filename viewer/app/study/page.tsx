@@ -50,7 +50,7 @@ export default async function StudyPage({
   if (guides.length === 0) {
     return (
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
           다시 공부하기
         </Typography>
         <Typography color="text.secondary">
@@ -101,7 +101,7 @@ export default async function StudyPage({
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         📚 다시 공부하기
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 1 }}>
@@ -161,7 +161,7 @@ export default async function StudyPage({
       {/* ── 먼저 볼 자료 ── */}
       {!selected && notableMaterials.length > 0 && (
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             먼저 볼 자료
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
@@ -200,7 +200,7 @@ export default async function StudyPage({
       )}
 
       {/* ── 설명 카드 ── */}
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>
         {selected ? PRIORITY_LABEL[selected] : "주제별로 보기"}
         <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
           {sorted.length}건

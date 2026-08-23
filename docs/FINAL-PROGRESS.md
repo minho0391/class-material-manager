@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P1-5 Viewer 최종 사용성** — 진행 중
+**P2 품질 강화 (E2E · 성능 · 코드 정리 · 재현성)** — 진행 중
 
 ## 완료된 작업
 
@@ -61,8 +61,8 @@ remote  https://github.com/minho0391/class-material-manager (private)
 - [x] P1-2 backup / restore — 3.8MB · refresh 전 자동 백업 · 실제 손상 복구 검증
 - [x] P1-3 CLI 사용성 — 명령 16개 도움말 일치 확인 · 처음 순서/Viewer 실행 추가
 - [x] P1-4 Viewer 오류 fallback — 500 → 안내 화면 (없음/못 읽음 구분)
-- [ ] P1-5 Viewer 최종 사용성
-- [ ] P1-6 자동 테스트 확장
+- [x] P1-5 Viewer 최종 사용성 — heading 구조 바로잡음 (h1 1개/페이지)
+- [x] P1-6 자동 테스트 — 120 → 174건 확장
 
 ### P2 — 품질 강화
 - [ ] P2-1 Playwright E2E 검토/구현

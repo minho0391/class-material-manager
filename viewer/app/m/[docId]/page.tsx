@@ -76,7 +76,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
   return (
     <Box>
       {/* ── 머리말 ── */}
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         {material.title}
       </Typography>
 
@@ -130,7 +130,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       {/* ── 2-2. 수업 방식 점검 — 눈여겨볼 것이 있을 때만 ── */}
       {notable.length > 0 && (
         <Box sx={{ mt: 5, maxWidth: "72ch" }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             ⚖️ 지금도 그대로 써도 되나
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
@@ -172,7 +172,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       {/* ── 2-3. 다시 공부하기 — 손볼 것이 있을 때만 ── (15단계) */}
       {study.material && study.material.priority !== "KEEP" && (
         <Box sx={{ mt: 5, maxWidth: "72ch" }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             📚 이 자료 그냥 다시 공부해도 되나
           </Typography>
           <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mb: 1 }}>
@@ -205,7 +205,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       {/* ── 3. 공식 문서 보충 — 있을 때만 ── */}
       {related.length > 0 && (
         <Box sx={{ mt: 5, maxWidth: "72ch" }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             📘 이 주제의 공식 문서
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>

@@ -32,7 +32,7 @@ export default async function ReferencePage({
         공식 문서 요약
       </Typography>
 
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         {reference.title}
       </Typography>
 

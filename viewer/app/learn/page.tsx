@@ -32,7 +32,7 @@ export default async function LearnPage() {
   if (items.length === 0) {
     return (
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
           통합 학습자료
         </Typography>
         <Typography color="text.secondary">
@@ -62,7 +62,7 @@ export default async function LearnPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
+      <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         🎓 통합 학습자료
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -85,6 +85,7 @@ export default async function LearnPage() {
           >
             <Typography
               variant="h4"
+              component="p"
               sx={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}
             >
               {item.value}
@@ -99,7 +100,7 @@ export default async function LearnPage() {
       {/* ── 과목별 목록 ── */}
       {[...bySubject.entries()].map(([subject, list]) => (
         <Box key={subject} sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             {subjectLabel(subject)}
           </Typography>
           <Divider sx={{ mb: 2 }} />
