@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P0-5 Google 게시 문서 지문 안정화** — 진행 중
+**P1-1 실패 문서 우선 복구** — 진행 중
 
 ## 완료된 작업
 
@@ -53,7 +53,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 ### P0 — 반드시 먼저
 - [x] P0-3 데이터 안전성 — 쓰기 16곳 전부 원자적으로 (commit 415b316)
 - [x] P0-4 민감정보 검사 — `npm run security-check` · 자료/git 대상 구분 · 값 마스킹
-- [ ] P0-5 Google 게시 문서 지문 안정화
+- [x] P0-5 Google 게시 문서 지문 안정화 — 되풀이 저장·분류 멈춤 확인
 - [ ] P0-6 핵심 회귀 방지
 
 ### P1 — v1 완성
@@ -80,14 +80,14 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ### 17단계에서 넘어온 검토 항목
 - [x] 민감정보 정리 / 공개 준비 → P0-4 에서 완료
-- [ ] 게시형 Google 문서 지문 → P0-5 에서
+- [x] 게시형 Google 문서 지문 → P0-5 에서 완료
 - [ ] 실행 간 이어받기 → 가치 판단 필요
 - [ ] failedDocuments 우선 재시도 → P1-1 에서
 
 ## 마지막 테스트 결과
 
 ```
-141건 통과 / 0건 실패 (P0-4 완료 시점)
+151건 통과 / 0건 실패 (P0-5 완료 시점)
 ```
 
 ## 마지막 정상 commit
