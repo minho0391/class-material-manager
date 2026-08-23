@@ -16,18 +16,31 @@
  */
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
-import { mask, scanText, summarize } from "../src/security/secret-scanner.ts";
+import {
+  ALLOW_MARKER,
+  mask,
+  scanText,
+  scanTextDetailed,
+  summarize,
+} from "../src/security/secret-scanner.ts";
 
 const NEWLINE = String.fromCodePoint(10);
 const lines = (...parts: string[]): string => parts.join(NEWLINE);
 
-/** 모양만 흉내 낸 가짜 값들 — 실제 자료에서 가져온 것이 아닙니다 */
+/**
+ * 모양만 흉내 낸 가짜 값들 — 실제 자료에서 가져온 것이 아닙니다.
+ *
+ * 검사기를 시험하려면 진짜처럼 생긴 값이 있어야 하고,
+ * 진짜처럼 생겼으니 검사기가 이 파일을 잡습니다. 당연한 일입니다.
+ * 그래서 이 줄들에만 `cmm-allow-secret` 을 붙여 건너뛰게 합니다.
+ * 규칙은 그대로 두고, 건너뛴 줄 수는 검사 결과에 그대로 드러납니다.
+ */
 const FAKE = {
   github: `ghp_${"A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"}`, // ghp_ + 36자
-  aws: "AKIAABCDEFGHIJKLMNOP",
+  aws: "AKIAABCDEFGHIJKLMNOP", // cmm-allow-secret
   openai: `sk-${"abcdefghijklmnopqrstuvwxyz012345"}`,
   google: `AIza${"SyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q"}`,
-  slack: "xoxb-1234567890-abcdefghij",
+  slack: "xoxb-1234567890-abcdefghij", // cmm-allow-secret
 };
 
 describe("찾아야 할 것", () => {
@@ -49,7 +62,7 @@ describe("찾아야 할 것", () => {
 
   it("개인 키 블록을 찾습니다", () => {
     const found = scanText(
-      lines("-----BEGIN RSA PRIVATE KEY-----", "MIIEow...", "-----END RSA PRIVATE KEY-----"),
+      lines("-----BEGIN RSA PRIVATE KEY-----", "MIIEow...", "-----END RSA PRIVATE KEY-----"), // cmm-allow-secret
       "key.pem",
     );
     assert.equal(found.length, 1);
@@ -57,7 +70,7 @@ describe("찾아야 할 것", () => {
   });
 
   it("값이 채워진 자격증명 대입문을 찾습니다", () => {
-    const found = scanText('const apiKey = "a1b2c3d4e5f6g7h8";', "config.ts");
+    const found = scanText('const apiKey = "a1b2c3d4e5f6g7h8";', "config.ts"); // cmm-allow-secret
     assert.equal(found[0]?.patternId, "credential-assignment");
     assert.equal(found[0]?.confidence, "medium", "이쪽은 오탐이 있을 수 있어 '보통' 입니다");
   });
@@ -95,6 +108,39 @@ describe("찾지 말아야 할 것", () => {
 
   it("아무것도 없으면 빈 목록입니다", () => {
     assert.deepEqual(scanText("const total = items.length;", "a.ts"), []);
+  });
+});
+
+describe("일부러 넣은 가짜는 건너뜁니다 — 그러나 숨기지는 않습니다", () => {
+  it("표시가 붙은 줄은 잡지 않습니다", () => {
+    const 표시있음 = `const token = "${FAKE.github}"; // ${ALLOW_MARKER}`;
+    assert.deepEqual(scanText(표시있음, "t.ts"), []);
+  });
+
+  it("표시가 없으면 그대로 잡습니다 — 규칙은 느슨해지지 않았습니다", () => {
+    const 표시없음 = `const token = "${FAKE.github}";`;
+    assert.equal(scanText(표시없음, "t.ts").length, 1);
+  });
+
+  it("건너뛴 줄 수를 반드시 세어서 알립니다", () => {
+    // 조용히 넘어가면 이 표시가 진짜를 감추는 데 쓰일 수 있습니다.
+    const 글 = lines(
+      `a = "${FAKE.github}" // ${ALLOW_MARKER}`,
+      `b = "${FAKE.github}" // ${ALLOW_MARKER}`,
+      "c = 1",
+    );
+    const 결과 = scanTextDetailed(글, "t.ts");
+
+    assert.deepEqual(결과.findings, []);
+    assert.equal(결과.allowlisted, 2, "몇 줄을 건너뛰었는지 드러나야 합니다");
+  });
+
+  it("표시는 그 줄에만 듣습니다 — 다음 줄까지 덮지 않습니다", () => {
+    const 글 = lines(`a = "${FAKE.github}" // ${ALLOW_MARKER}`, `b = "${FAKE.github}"`);
+    const 결과 = scanTextDetailed(글, "t.ts");
+
+    assert.equal(결과.findings.length, 1);
+    assert.equal(결과.findings[0]?.line, 2);
   });
 });
 

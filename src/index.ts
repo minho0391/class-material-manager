@@ -840,6 +840,10 @@ async function runSecurityCheck(args: string[]): Promise<void> {
     log.detail(`저장소 경계   : ${report.repoRoot}`);
     log.detail(`추적 중인 파일: ${report.trackedCount}개`);
     log.detail(`data/ 무시 여부: ${report.dataIgnored ? "무시됨 ✓" : "추적됨 ✗"}`);
+    if (report.allowlisted > 0) {
+      // 건너뛴 것을 조용히 넘어가지 않습니다. 이 표시가 진짜를 감추는 데 쓰일 수 있습니다.
+      log.detail(`사람이 "가짜" 로 표시해 건너뛴 줄: ${report.allowlisted}개 (cmm-allow-secret)`);
+    }
 
     if (report.tracked.length === 0) {
       log.success("git 이 추적하는 파일에서 민감정보 의심 문자열을 찾지 못했습니다");

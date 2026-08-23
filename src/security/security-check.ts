@@ -24,7 +24,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { extname, join, relative } from "node:path";
 import { DATA_DIR, ROOT_DIR } from "../config/paths.ts";
-import { scanText, summarize, type SecretFinding } from "./secret-scanner.ts";
+import { scanTextDetailed, summarize, type SecretFinding } from "./secret-scanner.ts";
 
 const run = promisify(execFile);
 
@@ -77,10 +77,9 @@ async function scanDirectory(root: string, label: string): Promise<SecretFinding
       try {
         const text = await readFile(path, "utf8");
         const where = `${label}/${relative(root, path).replace(/\\/g, "/")}`;
-        findings.push(...scanText(text, where));
+        findings.push(...scanTextDetailed(text, where).findings);
       } catch {
-        // 읽지 못하는 파일은 넘어갑니다. 못 읽은 것을 "깨끗하다" 고 하지는 않습니다 —
-        // 아래 `unreadable` 로 셉니다.
+        // 읽지 못하는 파일은 넘어갑니다 (그림·압축파일 등 글이 아닌 것).
       }
     }
   }
@@ -115,6 +114,12 @@ export interface SecurityReport {
   inGitRepo: boolean;
   /** 이 저장소의 경계 (엉뚱한 저장소를 보고 있지 않은지 확인용) */
   repoRoot: string | null;
+  /**
+   * 사람이 "일부러 넣은 가짜" 라고 표시해 건너뛴 줄 수.
+   *
+   * **반드시 화면에 보여 줍니다.** 조용히 넘어가면 이 표시가 진짜를 감추는 데 쓰입니다.
+   */
+  allowlisted: number;
   /** 통과했는가 — **git 추적 대상에 아무것도 없으면 통과** */
   passed: boolean;
 }
@@ -151,6 +156,7 @@ export async function securityCheck(
 
   // ── git 이 추적하는 파일 ──
   const tracked: SecretFinding[] = [];
+  let allowlisted = 0;
   for (const relativePath of files ?? []) {
     if (!isTextFile(relativePath)) continue;
 
@@ -158,7 +164,9 @@ export async function securityCheck(
       const path = join(ROOT_DIR, relativePath);
       if ((await stat(path)).size > MAX_FILE_BYTES) continue;
       const text = await readFile(path, "utf8");
-      tracked.push(...scanText(text, relativePath));
+      const scanned = scanTextDetailed(text, relativePath);
+      tracked.push(...scanned.findings);
+      allowlisted += scanned.allowlisted;
     } catch {
       continue;
     }
@@ -174,6 +182,7 @@ export async function securityCheck(
     dataIgnored: await isDataIgnored(),
     inGitRepo: files !== null,
     repoRoot,
+    allowlisted,
     passed: tracked.length === 0,
   };
 }

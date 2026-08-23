@@ -54,7 +54,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 - [x] P0-3 데이터 안전성 — 쓰기 16곳 전부 원자적으로 (commit 415b316)
 - [x] P0-4 민감정보 검사 — `npm run security-check` · 자료/git 대상 구분 · 값 마스킹
 - [x] P0-5 Google 게시 문서 지문 안정화 — 되풀이 저장·분류 멈춤 확인
-- [ ] P0-6 핵심 회귀 방지
+- [x] P0-6 보안 검사 자기 검증 — allowlist 표시 + 건너뛴 줄 수 보고
 
 ### P1 — v1 완성
 - [ ] P1-1 실패 문서 우선 복구 (failedDocuments 활용)
@@ -87,13 +87,13 @@ remote  https://github.com/minho0391/class-material-manager (private)
 ## 마지막 테스트 결과
 
 ```
-151건 통과 / 0건 실패 (P0-5 완료 시점)
+155건 통과 / 0건 실패 (P0 완료)
 ```
 
 ## 마지막 정상 commit
 
 ```
-5c49088  수업자료 관리 도구 — 1~17단계 완료 상태
+8f34854  Google 게시 문서 지문 안정화 (P0-5) — origin/main 에 push 됨
 ```
 
 ## 다음 세션이 이어서 해야 할 일

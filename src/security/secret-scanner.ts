@@ -106,6 +106,25 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   },
 ];
 
+/**
+ * 이 표시가 든 줄은 건너뜁니다.
+ *
+ * ■ 왜 이런 것이 필요한가
+ *
+ * 이 검사기 자신을 시험하려면 **진짜처럼 생긴 가짜 값**이 있어야 합니다.
+ * 그런데 진짜처럼 생겼으니 검사기가 그것을 잡습니다. 당연한 일입니다.
+ *
+ * 그렇다고 규칙을 느슨하게 만들면 진짜도 놓칩니다.
+ * 그래서 규칙은 그대로 두고, **"이건 일부러 넣은 가짜다" 라고 사람이 적어 둔 줄**만
+ * 건너뜁니다. 흔한 도구들이 쓰는 방식입니다.
+ *
+ * ■ 숨기는 데 쓰이지 않게
+ *
+ * 건너뛴 줄이 **몇 개인지 반드시 세어서 알립니다.**
+ * 조용히 넘어가면 이 표시가 진짜를 감추는 데 쓰일 수 있습니다.
+ */
+export const ALLOW_MARKER = "cmm-allow-secret";
+
 /** 찾아낸 것 하나 */
 export interface SecretFinding {
   /** 어느 파일에서 */
@@ -143,13 +162,31 @@ export function mask(value: string): string {
  * @param file 어느 파일인지 (결과에 적을 이름)
  */
 export function scanText(text: string, file: string): SecretFinding[] {
+  return scanTextDetailed(text, file).findings;
+}
+
+/** 훑은 결과 — 건너뛴 줄 수까지 함께 */
+export interface ScanResult {
+  findings: SecretFinding[];
+  /** 사람이 "일부러 넣은 가짜" 라고 표시해 건너뛴 줄 수 */
+  allowlisted: number;
+}
+
+/** 글 한 덩어리를 훑고, 건너뛴 줄 수도 함께 돌려줍니다. */
+export function scanTextDetailed(text: string, file: string): ScanResult {
   const findings: SecretFinding[] = [];
   const lines = text.split(NEWLINE);
+
+  const allowed = new Set<number>();
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index]?.includes(ALLOW_MARKER)) allowed.add(index);
+  }
 
   for (const pattern of SECRET_PATTERNS) {
     for (let index = 0; index < lines.length; index++) {
       const line = lines[index];
       if (!line) continue;
+      if (allowed.has(index)) continue;
 
       // 정규식이 `g` 라 이전 자리를 기억합니다. 줄마다 처음부터 봅니다.
       pattern.pattern.lastIndex = 0;
@@ -167,7 +204,7 @@ export function scanText(text: string, file: string): SecretFinding[] {
     }
   }
 
-  return findings;
+  return { findings, allowlisted: allowed.size };
 }
 
 const NEWLINE = String.fromCodePoint(10);
