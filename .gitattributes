@@ -1,0 +1,28 @@
+# 줄바꿈(개행)을 저장소 기준인 LF 로 고정합니다.
+#
+# 왜 필요한가
+#
+# Windows 의 기본 설정 core.autocrlf=true 는 checkout 할 때 LF 를 CRLF 로 바꿉니다.
+# 저장소 안(blob)은 LF 인데 작업 폴더만 CRLF 가 되는 것입니다.
+# 평소에는 문제가 없지만, 소스를 "글자 그대로" 읽어서 검사하는 테스트가 있습니다.
+#
+#   tests/viewer-fallback.test.ts — viewer/lib/data.ts 를 읽어
+#                                   "\n}\n" 로 함수의 끝을 찾습니다
+#
+# CRLF 파일에서는 그 자리가 "\r\n}\r\n" 이라 끝을 영영 찾지 못하고 실패합니다.
+# 이미 받아둔 폴더에서는 재현되지 않고 **새로 clone 한 사람에게서만** 터지는 문제라
+# 18단계 최종 검증(P3-3)에서야 드러났습니다.
+#
+# 이 파일이 있으면 어떤 OS·어떤 설정에서 clone 해도 작업 폴더가 LF 로 통일됩니다.
+* text=auto eol=lf
+
+# 아래는 텍스트가 아니므로 손대지 않습니다 (건드리면 파일이 깨집니다).
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.woff  binary
+*.woff2 binary

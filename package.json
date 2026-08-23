@@ -1,6 +1,6 @@
 {
   "name": "class-material-manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "수업자료(Google Docs)를 수집하고 과목별로 정리하며 공식 문서로 보충하는 개인 학습자료 관리 도구",
   "type": "module",

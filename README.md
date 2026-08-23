@@ -16,10 +16,15 @@
 npm install         # 처음 한 번만
 
 npm run refresh     # ★ 평소에는 이것 하나만 — 학습 데이터를 최신 상태로 갱신 (비교까지 포함)
-cd viewer && npm run dev    # → http://localhost:3000
+cd viewer && npm install && npm run dev    # → http://localhost:3000
 
-node src/index.ts help      # 명령 하나씩 따로 쓰고 싶을 때
+node src/index.ts help      # 명령 하나씩 따로 쓰고 싶을 때 (16개)
 npm run typecheck           # 전체 타입 검사
+npm test                    # 자동 시험 174건 — 서버도 인터넷도 필요 없습니다 (1초)
+npm run e2e                 # 브라우저로 뷰어 확인 13건 — 뷰어는 알아서 띄웁니다
+npm run security-check      # 남에게 보이기 전 민감정보 검사
+npm run backup              # data/ 전체 백업 (refresh 전에도 자동으로 뜹니다)
+npm run restore             # 백업에서 되돌리기
 ```
 
 `npm run refresh` 가 아홉 단계를 올바른 순서로 부릅니다. 자세한 설명은 [12단계](#12단계-실행-결과)에.
@@ -44,6 +49,26 @@ npm run typecheck           # 전체 타입 검사
 | 11 | 학습 진입점 · 검색 통합 · 오탐 보정 | ✅ 완료 |
 | 12 | 통합 갱신 파이프라인 (`refresh`) | ✅ 완료 |
 | 13 | 수업 방식 ↔ 공식 문서 비교 | ✅ 완료 (비교 370건) |
+| 14 | 공식 문서 자리 짚어 찾기 · 비교 근거 보강 | ✅ 완료 (비교 355건으로 정리) |
+| 15 | 다시 공부할 거리 (`study-guides`) | ✅ 완료 (355건 · 손볼 자료 19건) |
+| 16 | 공식 문서 수집 상태 기록 | ✅ 완료 |
+| 17 | 네트워크 실패 구분 · 다시 하기 · 이어받기 | ✅ 완료 |
+| 18 | v1 마감 — 안전성 · 복구 · 사용성 · 문서 | ✅ 완료 → **v1.0.0** |
+
+### v1.0.0 으로 마감했습니다
+
+18단계는 새 기능을 붙이는 단계가 아니라 **계속 쓸 수 있는 상태로 닫는** 단계였습니다.
+마감 시점에 다음을 직접 돌려서 확인했습니다.
+
+| 확인한 것 | 결과 |
+|---|---|
+| 타입 검사 `npm run typecheck` | 통과 |
+| 자동 시험 `npm test` | **174건 전부 통과** |
+| 브라우저 시험 `npm run e2e` | **13건 전부 통과** |
+| 민감정보 검사 `npm run security-check` | 통과 — git 이 추적하는 파일에는 없음 |
+| 자료 회귀 확인 | 자료 393 · 연결 62 · 학습 27 · 비교 355 · 묶음 89 — 17단계와 같음 |
+
+앞으로 해 볼 만한 것과 지금 못 하는 것은 [docs/FUTURE.md](docs/FUTURE.md) 에 적어 두었습니다.
 
 ### 1단계 실행 결과
 
@@ -1407,6 +1432,8 @@ npm run dev     # → http://localhost:3000
 ## 문서
 
 - [docs/OAUTH-SETUP.md](docs/OAUTH-SETUP.md) — 2단계 OAuth 설정 절차 (약 10분, 브라우저 작업)
+- [docs/FUTURE.md](docs/FUTURE.md) — v1.0.0 이 못 하는 것과 앞으로 해 볼 만한 것
+- [docs/FINAL-PROGRESS.md](docs/FINAL-PROGRESS.md) — 18단계(마감) 진행 기록
 - [viewer/README.md](viewer/README.md) — 뷰어 실행법과 구조
 
 전체 설계와 조사 근거는 별도 계획서에 정리되어 있습니다.
