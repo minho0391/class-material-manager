@@ -12,7 +12,9 @@
     "extract": "node src/index.ts extract",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/*.test.ts\"",
-    "security-check": "node src/index.ts security-check"
+    "security-check": "node src/index.ts security-check",
+    "backup": "node src/index.ts backup",
+    "restore": "node src/index.ts restore"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",

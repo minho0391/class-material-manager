@@ -40,7 +40,15 @@ import { loadCollectStatus } from "./store/collect-status-store.ts";
 import { COLLECT_LABEL, COLLECT_MARK, COLLECT_MEANING } from "./enrich/collect-status.ts";
 import { describeRateLimit, hasGithubToken } from "./net/github.ts";
 import { FAILURE_LABEL, type FailureType } from "./net/failure.ts";
+import { join } from "node:path";
 import { securityCheck, summarize } from "./security/security-check.ts";
+import {
+  BACKUP_DIR,
+  KEEP_BACKUPS,
+  createBackup,
+  listBackups,
+  restoreBackup,
+} from "./backup/backup-runner.ts";
 import { PRIORITY_LABEL, PRIORITY_MEANING } from "./study/study-builder.ts";
 import * as log from "./utils/logger.ts";
 
@@ -821,6 +829,67 @@ async function runRefresh(args: string[]): Promise<void> {
  * **찾아낸 값을 그대로 보여주지 않습니다.** 어디에 있는지와 가린 형태만 알립니다.
  * 찾아낸 비밀을 화면과 로그에 다시 뿌리면, 막으려던 것을 우리가 하는 셈입니다.
  */
+/**
+ * 18단계 — 다시 만들기 비싼 것만 챙겨 둡니다.
+ */
+async function runBackup(args: string[]): Promise<void> {
+  if (args.includes("--list")) {
+    const all = await listBackups();
+
+    log.step("만들어 둔 백업");
+    if (all.length === 0) {
+      log.detail("아직 없습니다. `node src/index.ts backup` 으로 만들어 두세요");
+      return;
+    }
+
+    for (const backup of all) {
+      const size = `${(backup.totalBytes / 1024 / 1024).toFixed(1)}MB`;
+      log.info(`  ${backup.complete ? "✓" : "✗"} ${backup.name}`);
+      log.detail(
+        backup.complete
+          ? `    파일 ${backup.fileCount}개 · ${size}`
+          : "    만들다 멈춘 백업입니다. 되돌리는 데 쓰지 않습니다",
+      );
+    }
+    return;
+  }
+
+  const label = args.includes("--label") ? args[args.indexOf("--label") + 1] : undefined;
+
+  log.step("되돌릴 수 있게 챙겨 둡니다");
+  log.detail("다시 만들기 비싼 것만 챙깁니다 — 내려받은 원본(materials/)은 복제하지 않습니다");
+  log.detail("인증 정보(token.json)도 챙기지 않습니다. 사본을 늘리는 것 자체가 위험합니다");
+
+  const made = await createBackup(label);
+
+  log.success(`백업을 만들었습니다 — ${made.name}`);
+  log.detail(`파일 ${made.files.length}개 · ${(made.totalBytes / 1024 / 1024).toFixed(1)}MB`);
+  log.detail(`저장 위치: ${join(BACKUP_DIR, made.name)}`);
+  log.detail(`가장 최근 ${KEEP_BACKUPS}개만 남기고 오래된 것은 치웁니다`);
+}
+
+/**
+ * 18단계 — 백업으로 되돌립니다.
+ */
+async function runRestore(args: string[]): Promise<void> {
+  const name = args.find((argument) => !argument.startsWith("--"));
+
+  log.step("백업으로 되돌립니다");
+  log.detail("내려받은 원본(materials/)은 건드리지 않습니다");
+
+  try {
+    const result = await restoreBackup(name);
+
+    log.success(`되돌렸습니다 — ${result.name}`);
+    for (const path of result.restored) log.detail(`  ${path}`);
+    log.info("");
+    log.detail("뷰어를 새로고침하면 되돌린 내용이 보입니다");
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}
+
 async function runSecurityCheck(args: string[]): Promise<void> {
   const skipData = args.includes("--skip-data");
 
@@ -1053,6 +1122,8 @@ function showHelp(): void {
   compare        수업 당시 방식이 지금도 맞는지 공식 문서와 견줍니다
   study          견준 결과를 '다시 공부할 거리' 로 옮깁니다
   security-check 바깥에 내놔도 되는지 민감정보를 살펴봅니다
+  backup         다시 만들기 비싼 데이터를 챙겨 둡니다
+  restore        백업으로 되돌립니다
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다
 
@@ -1069,6 +1140,15 @@ study 옵션:
 security-check 옵션:
   (옵션 없음)      자료와 git 공개 대상을 모두 살펴봅니다
   --skip-data      자료(data/)는 건너뛰고 git 공개 대상만 빠르게 봅니다
+
+backup 옵션:
+  (옵션 없음)      지금 상태를 챙겨 둡니다
+  --list           만들어 둔 백업 목록을 봅니다
+  --label <이름>   백업 이름에 덧붙일 말
+
+restore 옵션:
+  (옵션 없음)      가장 최근 백업으로 되돌립니다
+  <백업 이름>      그 백업으로 되돌립니다 (backup --list 로 이름 확인)
 
 refresh 옵션:
   (옵션 없음)      전체를 최신 상태로 갱신합니다
@@ -1153,6 +1233,12 @@ async function main(): Promise<void> {
       break;
     case "security-check":
       await runSecurityCheck(process.argv.slice(3));
+      break;
+    case "backup":
+      await runBackup(process.argv.slice(3));
+      break;
+    case "restore":
+      await runRestore(process.argv.slice(3));
       break;
     case "help":
     case "--help":

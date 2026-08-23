@@ -35,6 +35,7 @@ import { compare, markStaleComparisons } from "../compare/compare-runner.ts";
 import { buildStudy } from "../study/study-runner.ts";
 import { COLLECT_STATUS } from "../enrich/collect-status.ts";
 import { describeRateLimit } from "../net/github.ts";
+import { createBackup } from "../backup/backup-runner.ts";
 import { STUDY_GUIDES_FILE } from "../store/study-store.ts";
 import { COLLECT_STATUS_FILE } from "../store/collect-status-store.ts";
 import { loadComparisons } from "../store/comparison-store.ts";
@@ -220,6 +221,21 @@ export async function refresh(options: RefreshOptions = {}): Promise<RefreshSumm
 
   const steps: StepResult[] = [];
   const before = await takeSnapshot();
+
+  // ── 시작하기 전에 챙겨 둡니다 ── (18단계)
+  //
+  // 갱신 결과가 이상하면 `restore` 로 되돌릴 수 있어야 합니다.
+  // 다시 만들기 비싼 것만 챙기므로 4MB 남짓이고 몇 초면 끝납니다.
+  // dry-run 일 때는 하지 않습니다 — 아무것도 바꾸지 않겠다고 했으니까요.
+  if (!options.dryRun) {
+    try {
+      const made = await createBackup("before-refresh");
+      log.detail(`갱신 전 상태를 챙겨 두었습니다 — ${made.name} (${(made.totalBytes / 1024 / 1024).toFixed(1)}MB)`);
+    } catch (error) {
+      // 백업에 실패해도 갱신은 합니다. 다만 조용히 넘어가지 않습니다.
+      log.warn(`갱신 전 백업에 실패했습니다: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   let order = 0;
   let stopped = false;
