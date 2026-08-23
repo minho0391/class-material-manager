@@ -1,0 +1,20 @@
+# 의존성
+node_modules/
+
+# 수집한 자료 전체 (강사 저작물 · 개인정보 보호를 위해 git에 올리지 않음)
+# 변경 이력은 git 대신 data/history/ 폴더에 직접 보존한다.
+data/
+
+# 인증 정보 (혹시 프로젝트 루트에 두게 될 경우 대비)
+.env
+*.token.json
+credentials.json
+
+# 로그 · OS 부산물
+*.log
+.DS_Store
+Thumbs.db
+
+# TypeScript 증분 빌드 캐시 (소스가 아님)
+viewer/tsconfig.tsbuildinfo
+*.tsbuildinfo
