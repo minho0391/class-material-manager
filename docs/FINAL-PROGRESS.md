@@ -41,7 +41,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 
 ## 현재 작업
 
-**P1-1 실패 문서 우선 복구** — 진행 중
+**P1-2 backup / restore** — 진행 중
 
 ## 완료된 작업
 
@@ -57,7 +57,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 - [x] P0-6 보안 검사 자기 검증 — allowlist 표시 + 건너뛴 줄 수 보고
 
 ### P1 — v1 완성
-- [ ] P1-1 실패 문서 우선 복구 (failedDocuments 활용)
+- [x] P1-1 실패 문서 우선 복구 — 순서만 바꿈(건너뛰기 아님) · 이름 충돌 승자 안정화
 - [ ] P1-2 backup / restore
 - [ ] P1-3 CLI 사용성 (help 정리)
 - [ ] P1-4 Viewer 오류 fallback
@@ -82,7 +82,7 @@ remote  https://github.com/minho0391/class-material-manager (private)
 - [x] 민감정보 정리 / 공개 준비 → P0-4 에서 완료
 - [x] 게시형 Google 문서 지문 → P0-5 에서 완료
 - [ ] 실행 간 이어받기 → 가치 판단 필요
-- [ ] failedDocuments 우선 재시도 → P1-1 에서
+- [x] failedDocuments 우선 재시도 → P1-1 에서 완료
 
 ## 마지막 테스트 결과
 

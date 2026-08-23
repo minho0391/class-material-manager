@@ -38,7 +38,7 @@ import {
 import { collectDocuments, type DocumentFailure, type RetryDeps } from "../net/fetch-retry.ts";
 import { FAILURE_LABEL, type FailureType } from "../net/failure.ts";
 import { describeRateLimit, hasGithubToken } from "../net/github.ts";
-import { saveCollectStatus } from "../store/collect-status-store.ts";
+import { loadCollectStatus, saveCollectStatus } from "../store/collect-status-store.ts";
 import { ruleBasedSummarizer, type DocSummary, type Summarizer } from "./summarizer.ts";
 import { collectMaterialText, matchTopics, type MatchedTopic } from "./topic-matcher.ts";
 import * as log from "../utils/logger.ts";
@@ -127,6 +127,8 @@ export interface SubjectResult {
   contentSkipped: number;
   /** 못 받은 문서들 (개수 상한 있음) */
   contentFailures: DocumentFailure[];
+  /** 지난번에 못 받아 이번에 먼저 다시 해 본 문서 수 (18단계) */
+  retriedFromPrevious: number;
   /** 원문 총 글자수 → 요약 총 글자수 */
   originalChars: number;
   summaryChars: number;
@@ -168,6 +170,10 @@ export interface EnrichSummary {
   contentSkipped: number;
   /** 못 받은 문서들 (과목 이름을 붙여 모읍니다) */
   contentFailures: Array<DocumentFailure & { subject: string }>;
+  /** 지난번에 못 받아 이번에 먼저 다시 해 본 문서 수 */
+  retriedFromPrevious: number;
+  /** 그중 이번에 되찾은 문서 수 */
+  recoveredFromPrevious: number;
 }
 
 /** 색인을 사람이 읽을 수 있는 Markdown 으로 만듭니다. */
@@ -375,6 +381,8 @@ async function enrichSubject(
   materials: IndexEntry[],
   summarizer: Summarizer,
   options: EnrichOptions,
+  /** 지난 실행에서 이 과목에서 못 받은 문서 이름들 (18단계) */
+  previousFailures: Set<string> = new Set(),
 ): Promise<SubjectResult> {
   const result: SubjectResult = {
     subject: source.subject,
@@ -401,6 +409,7 @@ async function enrichSubject(
     contentSucceeded: 0,
     contentSkipped: 0,
     contentFailures: [],
+    retriedFromPrevious: 0,
   };
 
   const targetDir = join(REFERENCES_DIR, source.subject);
@@ -466,7 +475,8 @@ async function enrichSubject(
   // 한 번 실패했다고 곧바로 포기하지 않습니다. 다시 해 볼 만한 실패면 몇 번 더 해 봅니다.
   // 요청 한도에 걸렸는데 곧 풀린다면 기다렸다 **멈춘 자리에서** 이어갑니다.
   // 이미 받아 온 문서를 처음부터 다시 받는 일은 없습니다.
-  const touched = new Set<string>(["index.md"]);
+  // 파일 이름별로 **가장 앞선 순위**를 기억합니다. 승자를 순서가 아니라 순위로 정하려는 것입니다.
+  const bestRank = new Map<string, number>([["index.md", -1]]);
 
   // 주소가 없는 것은 요청해 볼 수조차 없습니다. 먼저 걸러 두고 따로 셉니다.
   const withUrl = matched.filter((match) => Boolean(match.doc.markdownUrl));
@@ -474,8 +484,33 @@ async function enrichSubject(
 
   const byId = new Map(withUrl.map((match) => [match.doc.markdownUrl as string, match]));
 
+  // 원래 순위를 적어 둡니다. 받는 순서를 바꿔도 승자는 이 순위로 정합니다.
+  const rankOf = new Map(withUrl.map((match, index) => [match.doc.markdownUrl as string, index]));
+
+  // ── 지난번에 못 받은 것부터 다시 해 봅니다 ── (18단계)
+  //
+  // 요청 한도에 걸려 중간에 멈추면 뒤쪽 문서는 손도 못 댑니다.
+  // 그런데 지난번에 못 받은 것이 하필 뒤쪽이면 계속 못 받게 됩니다.
+  // 그래서 그것들을 앞으로 당깁니다.
+  //
+  // **건너뛰기가 아니라 순서 바꾸기입니다.** 나머지도 전부 그대로 확인합니다 —
+  // 실패 기록이 전체 최신화를 대신하면 안 되기 때문입니다.
+  const order = [...withUrl].sort((a, b) => {
+    const aRetry = previousFailures.has(a.doc.title) ? 0 : 1;
+    const bRetry = previousFailures.has(b.doc.title) ? 0 : 1;
+    if (aRetry !== bRetry) return aRetry - bRetry;
+    // 같은 무리 안에서는 원래 순서를 지킵니다.
+    return (rankOf.get(a.doc.markdownUrl as string) ?? 0) - (rankOf.get(b.doc.markdownUrl as string) ?? 0);
+  });
+
+  const retryFirst = order.filter((match) => previousFailures.has(match.doc.title)).length;
+  if (retryFirst > 0) {
+    result.retriedFromPrevious = retryFirst;
+    log.detail(`  지난번에 못 받은 ${retryFirst}건을 먼저 다시 해 봅니다`);
+  }
+
   const contents = await collectDocuments(
-    withUrl.map((match) => ({
+    order.map((match) => ({
       id: match.doc.title,
       url: match.doc.markdownUrl as string,
       // 한국어 쪽에 본문이 없으면 영어 원문으로 받습니다.
@@ -486,6 +521,7 @@ async function enrichSubject(
       if (!match) return;
 
       const url = document.url;
+      const rank = rankOf.get(url) ?? Number.MAX_SAFE_INTEGER;
       const markdown = await response.text();
 
       const status = readDocStatus(markdown);
@@ -508,8 +544,13 @@ async function enrichSubject(
       // 번갈아 저장되어, 공식 문서는 그대로인데 **매번 "바뀜" 으로 잡혔습니다.**
       // (12단계에서 이 값을 세기 시작하면서 드러났습니다 — 실행마다 10건)
       //
-      // matched 는 언급이 많은 순으로 정렬돼 있으므로, **먼저 온 쪽이 더 중요한 주제**입니다.
-      // 먼저 온 것을 남기고 뒤엣것은 건너뜁니다. 결과가 실행할 때마다 같아집니다.
+      // matched 는 언급이 많은 순으로 정렬돼 있으므로, **순위가 앞선 쪽이 더 중요한 주제**입니다.
+      //
+      // 18단계 전에는 "먼저 받아 온 쪽" 이 이겼습니다. 받는 순서가 곧 matched 순서였으니
+      // 같은 뜻이었지만, 이제는 지난번에 실패한 문서를 먼저 받아 보므로 순서가 달라집니다.
+      // 그래서 **받은 순서가 아니라 원래 순위**로 승자를 정합니다.
+      // 그러지 않으면 실행할 때마다 승자가 뒤바뀌어 파일이 다시 흔들립니다.
+      //
       // 대소문자만 다른 이름도 같은 파일입니다.
       //
       // 윈도우·맥의 파일시스템은 `headers.md` 와 `Headers.md` 를 **같은 파일로 봅니다.**
@@ -518,12 +559,18 @@ async function enrichSubject(
       // (Next.js 문서의 `headers` / `Headers` 처럼 실제로 이런 짝이 있습니다)
       const nameKey = fileName.toLowerCase();
 
-      if (touched.has(nameKey)) {
+      const seenRank = bestRank.get(nameKey);
+      if (seenRank !== undefined && seenRank <= rank) {
+        // 이미 더 중요한 주제가 이 이름을 차지했습니다.
         result.nameConflicts++;
         return;
       }
+      if (seenRank !== undefined) {
+        // 순위가 더 앞선 쪽이 뒤늦게 왔습니다. 이쪽이 이깁니다.
+        result.nameConflicts++;
+      }
 
-      touched.add(nameKey);
+      bestRank.set(nameKey, rank);
       const path = join(targetDir, fileName);
 
       // ── 지난번과 같은 문서인지 견줍니다 ──
@@ -605,7 +652,7 @@ async function enrichSubject(
   // 그 파일들은 그대로 남습니다. 몇 건인지만 알려 줍니다.
   try {
     const existing = await readdir(targetDir);
-    result.stale = existing.filter((name) => name.endsWith(".md") && !touched.has(name.toLowerCase())).length;
+    result.stale = existing.filter((name) => name.endsWith(".md") && !bestRank.has(name.toLowerCase())).length;
   } catch {
     result.stale = 0;
   }
@@ -629,6 +676,17 @@ export async function enrich(
 
   const results: SubjectResult[] = [];
 
+  // ── 지난번에 못 받은 문서 ── (18단계)
+  //
+  // 우선순위 힌트로만 씁니다. 이것 때문에 전체 최신화를 건너뛰지는 않습니다.
+  const previous = await loadCollectStatus();
+  const failedBySubject = new Map<string, Set<string>>();
+  for (const failure of previous?.failedDocuments ?? []) {
+    const set = failedBySubject.get(failure.source) ?? new Set<string>();
+    set.add(failure.id);
+    failedBySubject.set(failure.source, set);
+  }
+
   for (const source of sources) {
     log.step(`${source.name} (${source.subject})`);
 
@@ -640,7 +698,13 @@ export async function enrich(
 
     log.detail(`수업자료 ${materials.length}건`);
 
-    const result = await enrichSubject(source, materials, summarizer, options);
+    const result = await enrichSubject(
+      source,
+      materials,
+      summarizer,
+      options,
+      failedBySubject.get(source.subject) ?? new Set(),
+    );
     results.push(result);
 
     if (result.reason) {
@@ -761,5 +825,13 @@ export async function enrich(
     contentSucceeded: results.reduce((sum, r) => sum + r.contentSucceeded, 0),
     contentSkipped: results.reduce((sum, r) => sum + r.contentSkipped, 0),
     contentFailures,
+    retriedFromPrevious: results.reduce((sum, r) => sum + r.retriedFromPrevious, 0),
+    // 지난번에 못 받았던 것 중 이번 실패 목록에 없는 것 = 되찾은 것
+    recoveredFromPrevious: [...failedBySubject.entries()].reduce((sum, [subject, ids]) => {
+      const stillFailing = new Set(
+        contentFailures.filter((failure) => failure.subject === subject).map((failure) => failure.id),
+      );
+      return sum + [...ids].filter((id) => !stillFailing.has(id)).length;
+    }, 0),
   };
 }
