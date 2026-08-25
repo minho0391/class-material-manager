@@ -36,7 +36,8 @@ export const metadata = { title: "수업 방식 점검 · 수업자료 아카이
 const COLOR: Record<string, "default" | "error" | "warning" | "info" | "success"> = {
   DEPRECATED: "error",
   UNSTABLE: "warning",
-  VERSION_GAP: "warning",
+  // design-mockups-v2 04번 시안 기준 — 버전 차이는 "확인하면서 복습"(study)과 같은 톤(info)을 씁니다.
+  VERSION_GAP: "info",
   REVIEW_REQUIRED: "info",
   NOT_FOUND: "default",
   CURRENT: "success",
@@ -88,8 +89,20 @@ function PatternShift({ item }: { item: ComparisonItem }) {
 }
 
 function ItemCard({ item }: { item: ComparisonItem }) {
+  // 사용 중단은 상태 칩 하나에만 기대지 않고 카드 테두리에서도 드러납니다.
+  // (design-mockups-v2 04번 — "사용 중단됨" 카드의 굵은 강조 테두리)
+  const urgent = item.status === "DEPRECATED";
+  const accentColor = `${COLOR[item.status] ?? "divider"}.main`;
+
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2.5,
+        mb: 2,
+        ...(urgent && { borderLeft: "4px solid", borderLeftColor: accentColor, borderColor: accentColor }),
+      }}
+    >
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mb: 1 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, fontFamily: "'D2Coding', monospace" }}>
           {item.topic}
@@ -334,9 +347,31 @@ export default async function ComparePage({
 
       <Divider sx={{ mb: 3 }} />
 
-      {sorted.slice(0, LIMIT).map((item) => (
-        <ItemCard key={item.id} item={item} />
-      ))}
+      {/*
+        상태나 급한 정도를 고르지 않았으면 상태별로 절을 나눕니다.
+        "사용 중단됨"부터 눈에 띄어야 하므로 급한 상태를 먼저 보여줍니다.
+        (design-mockups-v2 04번 — 상태별 제목이 붙은 절 구성)
+      */}
+      {selected || selectedSeverity ? (
+        sorted.slice(0, LIMIT).map((item) => <ItemCard key={item.id} item={item} />)
+      ) : (
+        ORDER.filter((s) => s !== "CURRENT" && counts.get(s)).map((s) => {
+          const group = sorted.filter((item) => item.status === s);
+          return (
+            <Box key={s} sx={{ mb: 4 }}>
+              <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                {COMPARISON_LABEL[s] ?? s}
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  {group.length}건
+                </Typography>
+              </Typography>
+              {group.slice(0, LIMIT).map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </Box>
+          );
+        })
+      )}
 
       {sorted.length > LIMIT && (
         <Typography color="text.secondary" sx={{ mt: 2 }}>

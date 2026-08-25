@@ -199,17 +199,42 @@ export default async function StudyPage({
         </Box>
       )}
 
-      {/* ── 설명 카드 ── */}
-      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>
-        {selected ? PRIORITY_LABEL[selected] : "주제별로 보기"}
-        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-          {sorted.length}건
-        </Typography>
-      </Typography>
-
-      {sorted.slice(0, LIMIT).map((guide) => (
-        <StudyCard key={guide.comparisonId} guide={guide} showSubject={!selectedSubject} />
-      ))}
+      {/*
+        ── 설명 카드 ──
+        필터를 고르지 않았으면 우선순위별로 절을 나눠 보여줍니다.
+        "새 방식으로 교체"부터 눈에 띄어야 하므로, 급한 갈래를 먼저 · 따로 보여줍니다.
+        (design-mockups-v2 03번 — "새 방식으로 교체 N건" 처럼 갈래별 제목이 붙습니다)
+      */}
+      {selected ? (
+        <>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>
+            {PRIORITY_LABEL[selected]}
+            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+              {sorted.length}건
+            </Typography>
+          </Typography>
+          {sorted.slice(0, LIMIT).map((guide) => (
+            <StudyCard key={guide.comparisonId} guide={guide} showSubject={!selectedSubject} />
+          ))}
+        </>
+      ) : (
+        PRIORITY_ORDER.filter((level) => level !== "KEEP" && counts.get(level)).map((level) => {
+          const group = sorted.filter((guide) => guide.learningPriority === level);
+          return (
+            <Box key={level} sx={{ mb: 4 }}>
+              <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                {PRIORITY_LABEL[level]}
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  {group.length}건
+                </Typography>
+              </Typography>
+              {group.slice(0, LIMIT).map((guide) => (
+                <StudyCard key={guide.comparisonId} guide={guide} showSubject={!selectedSubject} />
+              ))}
+            </Box>
+          );
+        })
+      )}
 
       {sorted.length > LIMIT && (
         <Typography color="text.secondary" sx={{ mt: 2 }}>

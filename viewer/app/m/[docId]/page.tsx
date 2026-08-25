@@ -26,6 +26,8 @@ import { Markdown } from "@/components/Markdown";
 import { NavChip, NavListItem } from "@/components/nav";
 import { StudyCard } from "@/components/StudyCard";
 import { PracticeCode } from "@/components/PracticeCode";
+import { TableOfContents } from "@/components/TableOfContents";
+import { extractTopHeadings } from "@/lib/toc";
 import {
   COMPARISON_LABEL,
   SEVERITY_LABEL,
@@ -73,8 +75,17 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
   const sections = [...new Set(material.occurrences.map((o) => o.section).filter(Boolean))];
   const size = humanSize(material.sizeBytes);
 
+  const headings = extractTopHeadings(body);
+  const practiceCount = learning?.practice.length ?? 0;
+  const reviewCount = notable.length;
+  const docsCount = related.length;
+  const hasSidePanel = headings.length > 0 || practiceCount > 0 || reviewCount > 0 || docsCount > 0;
+
   return (
-    <Box>
+    // 전체 폭을 제한해 아주 넓은 화면에서 본문과 오른쪽 패널 사이가
+    // 한없이 벌어지지 않게 합니다 (Codex 검토 반영 — 본문 폭·빈 공간 개선).
+    <Box sx={{ display: "flex", gap: 4, alignItems: "flex-start", maxWidth: 1180 }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
       {/* ── 머리말 ── */}
       <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }} gutterBottom>
         {material.title}
@@ -124,12 +135,14 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
 
       {/* ── 2. 관련 실습 코드 — 있을 때만 ── */}
       {learning && learning.practice.length > 0 && (
-        <PracticeCode practice={learning.practice} />
+        <Box id="practice-code">
+          <PracticeCode practice={learning.practice} />
+        </Box>
       )}
 
       {/* ── 2-2. 수업 방식 점검 — 눈여겨볼 것이 있을 때만 ── */}
       {notable.length > 0 && (
-        <Box sx={{ mt: 5, maxWidth: "72ch" }}>
+        <Box id="review" sx={{ mt: 5, maxWidth: "82ch" }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             ⚖️ 지금도 그대로 써도 되나
           </Typography>
@@ -171,7 +184,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
 
       {/* ── 2-3. 다시 공부하기 — 손볼 것이 있을 때만 ── (15단계) */}
       {study.material && study.material.priority !== "KEEP" && (
-        <Box sx={{ mt: 5, maxWidth: "72ch" }}>
+        <Box id="study-priority" sx={{ mt: 5, maxWidth: "82ch" }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             📚 이 자료 그냥 다시 공부해도 되나
           </Typography>
@@ -204,7 +217,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
 
       {/* ── 3. 공식 문서 보충 — 있을 때만 ── */}
       {related.length > 0 && (
-        <Box sx={{ mt: 5, maxWidth: "72ch" }}>
+        <Box id="official-docs" sx={{ mt: 5, maxWidth: "82ch" }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
             📘 이 주제의 공식 문서
           </Typography>
@@ -234,14 +247,63 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
         </Box>
       )}
 
-      <Divider sx={{ my: 4, maxWidth: "72ch" }} />
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: "72ch" }}>
+      <Divider sx={{ my: 4, maxWidth: "82ch" }} />
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: "82ch" }}>
         이 화면은 읽기 전용입니다. 내용을 고치려면{" "}
         <Link href={material.sourceUrl} target="_blank" rel="noopener noreferrer">
           원본 문서
         </Link>
         에서 수정한 뒤 <code>node src/index.ts collect</code> 로 다시 받아오세요.
       </Typography>
+      </Box>
+
+      {/*
+        ── 오른쪽 정보 패널 ──
+        넓은 화면에서 남는 공간을 목차·관련 정보로 채웁니다 (design-mockups-v2 02·05번).
+        좁은 화면(lg 미만)에서는 숨깁니다 — 본문을 읽는 데 방해가 되지 않도록.
+      */}
+      {hasSidePanel && (
+        <Box
+          sx={{
+            display: { xs: "none", lg: "block" },
+            width: 260,
+            flexShrink: 0,
+            position: "sticky",
+            top: 88,
+          }}
+        >
+          {headings.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+              <TableOfContents headings={headings} />
+            </Paper>
+          )}
+
+          {(practiceCount > 0 || reviewCount > 0 || docsCount > 0) && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 1 }}>
+                관련 정보
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.8 }}>
+                {practiceCount > 0 && (
+                  <Link href="#practice-code" underline="hover" variant="body2" sx={{ color: "text.primary" }}>
+                    💻 실습 코드 {practiceCount}건
+                  </Link>
+                )}
+                {reviewCount > 0 && (
+                  <Link href="#review" underline="hover" variant="body2" sx={{ color: "text.primary" }}>
+                    ⚖️ 점검할 것 {reviewCount}건
+                  </Link>
+                )}
+                {docsCount > 0 && (
+                  <Link href="#official-docs" underline="hover" variant="body2" sx={{ color: "text.primary" }}>
+                    📘 공식 문서 {docsCount}건
+                  </Link>
+                )}
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }

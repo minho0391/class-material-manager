@@ -47,7 +47,8 @@ function CodeBlock({ label, code, tone }: { label: string; code: string; tone: "
           borderColor: tone === "old" ? "text.disabled" : "success.main",
           overflowX: "auto",
           ...CODE_FONT,
-          fontSize: "0.78rem",
+          fontSize: "0.82rem",
+          lineHeight: 1.65,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
         }}
@@ -75,8 +76,24 @@ export function StudyCard({ guide, showSubject = true }: { guide: StudyGuide; sh
   const hasOld = Boolean(guide.oldCode ?? guide.oldPattern);
   const hasNew = Boolean(guide.currentPattern);
 
+  // 급한 우선순위일수록 카드 자체에서도 드러나야 합니다 — 작은 칩 하나에만 기대지 않습니다.
+  // (design-mockups-v2 03번 — "새 방식으로 교체" 카드의 굵은 왼쪽 강조선)
+  const urgent = guide.learningPriority === "REPLACE" || guide.learningPriority === "RELEARN";
+  const accentColor = `${PRIORITY_COLOR[guide.learningPriority] ?? "divider"}.main`;
+
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2.5,
+        mb: 2,
+        ...(urgent && {
+          borderLeft: "4px solid",
+          borderLeftColor: accentColor,
+          borderColor: accentColor,
+        }),
+      }}
+    >
       {/* ── 머리 ── */}
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mb: 1.2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, ...CODE_FONT }}>

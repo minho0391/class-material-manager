@@ -6,7 +6,7 @@
  * 모든 페이지가 이 안에 담깁니다.
  * 과목과 자료 수가 항상 보여서 어디에 무엇이 있는지 파악하기 쉽습니다.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import NextLink from "next/link";
 
@@ -25,9 +25,10 @@ import Paper from "@mui/material/Paper";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, useColorScheme } from "@mui/material/styles";
 
 import type { SubjectInfo } from "@/lib/data";
+import { logout } from "@/lib/supabase/actions";
 
 const DRAWER_WIDTH = 240;
 
@@ -64,6 +65,58 @@ function SearchBox() {
         inputProps={{ "aria-label": "자료 검색" }}
       />
     </Paper>
+  );
+}
+
+/**
+ * Light/Dark 전환.
+ *
+ * 사용자가 명시적으로 바꾸기 전까지는 시스템 설정(`system`)을 기본값으로 둡니다.
+ * MUI 의 `useColorScheme` 이 선택값을 localStorage 에 그대로 저장해 주므로,
+ * 새로고침 후에도 마지막으로 고른 테마가 유지됩니다 — 직접 저장 코드를 짤 필요가 없습니다.
+ */
+function ThemeToggle() {
+  const { mode, systemMode, setMode } = useColorScheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // 처음 그릴 때는 서버와 같은 모습으로 두어 화면이 깜빡이지 않게 합니다.
+  if (!mounted) return <Box sx={{ width: 68 }} />;
+
+  // mode 가 "system" 이면 실제 화면은 systemMode(OS 설정)를 따르고 있으므로,
+  // 어느 버튼이 눌린 것처럼 보여야 하는지도 그 값을 기준으로 판단합니다.
+  const current = (mode === "system" ? systemMode : mode) === "dark" ? "dark" : "light";
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 5,
+        p: 0.3,
+        gap: 0.2,
+      }}
+    >
+      <IconButton
+        size="small"
+        aria-label="밝은 테마로 전환"
+        aria-pressed={current === "light"}
+        onClick={() => setMode("light")}
+        sx={{ bgcolor: current === "light" ? "action.selected" : "transparent", borderRadius: "16px" }}
+      >
+        ☀️
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label="어두운 테마로 전환"
+        aria-pressed={current === "dark"}
+        onClick={() => setMode("dark")}
+        sx={{ bgcolor: current === "dark" ? "action.selected" : "transparent", borderRadius: "16px" }}
+      >
+        🌙
+      </IconButton>
+    </Box>
   );
 }
 
@@ -135,6 +188,11 @@ export function AppShell({
   const isWide = useMediaQuery(theme.breakpoints.up("md"));
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  // 로그인 화면은 사이드바 없이 이메일 · 비밀번호 · 버튼만 보여줍니다.
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   const drawerContent = (
     <>
@@ -246,6 +304,12 @@ export function AppShell({
 
           <Box sx={{ flex: 1 }} />
           <SearchBox />
+
+          <ThemeToggle />
+
+          <IconButton onClick={() => void logout()} aria-label="로그아웃" title="로그아웃" sx={{ ml: 1 }}>
+            🚪
+          </IconButton>
         </Toolbar>
       </AppBar>
 

@@ -36,7 +36,7 @@ export function PracticeCode({ practice }: { practice: LearningPractice[] }) {
   if (practice.length === 0) return null;
 
   return (
-    <Box sx={{ mt: 5, maxWidth: "72ch" }}>
+    <Box sx={{ mt: 5, maxWidth: "82ch" }}>
       <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
         💻 관련 실습 코드
       </Typography>
@@ -123,8 +123,8 @@ export function PracticeCode({ practice }: { practice: LearningPractice[] }) {
                   py: 1.5,
                   maxHeight: 460,
                   overflow: "auto",
-                  fontSize: "0.8rem",
-                  lineHeight: 1.65,
+                  fontSize: "0.86rem",
+                  lineHeight: 1.75,
                   fontFamily: "'D2Coding', 'Consolas', monospace",
                 }}
               >

@@ -12,6 +12,18 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Box from "@mui/material/Box";
 
+import { createHeadingIdAssigner } from "@/lib/toc";
+
+/** 제목 자식(문자열·강조 등이 섞인 React 트리)을 순수 텍스트로 풀어냅니다. */
+function flattenText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flattenText).join("");
+  if (node && typeof node === "object" && "props" in node) {
+    return flattenText((node as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return "";
+}
+
 /**
  * 본문 제목을 한 단계씩 낮춥니다. (18단계)
  *
@@ -31,16 +43,20 @@ const DEMOTED_HEADINGS = {
 } as const;
 
 export function Markdown({ children }: { children: string }) {
+  // 최상위 제목(h1)마다 "이 페이지" 목차(lib/toc.ts)와 같은 규칙으로 id 를 매깁니다.
+  // 렌더링마다 새로 만들어야 문서가 바뀌어도 번호가 어긋나지 않습니다.
+  const assignId = createHeadingIdAssigner();
+
   return (
     <Box
       sx={{
         // 읽기 좋은 너비로 제한합니다. 글줄이 너무 길면 눈이 따라가기 힘듭니다.
-        maxWidth: "72ch",
+        maxWidth: "82ch",
         wordBreak: "break-word",
 
         // 제목을 한 단계 낮춰 그리므로, 크기 규칙도 한 단계씩 옮겨 적습니다.
         // 보이는 모습은 예전과 똑같습니다.
-        "& h2": { fontSize: "1.6rem", mt: 4, mb: 1.5, fontWeight: 700 },
+        "& h2": { fontSize: "1.6rem", mt: 4, mb: 1.5, fontWeight: 700, scrollMarginTop: 88 },
         "& h3": { fontSize: "1.3rem", mt: 3.5, mb: 1.2, fontWeight: 700 },
         "& h4": { fontSize: "1.1rem", mt: 3, mb: 1, fontWeight: 600 },
         "& h4, & h5, & h6": { fontSize: "1rem", mt: 2.5, mb: 0.8, fontWeight: 600 },
@@ -52,17 +68,21 @@ export function Markdown({ children }: { children: string }) {
         "& a": { color: "primary.main" },
 
         // 코드블록 — 강사님이 표 안에 넣어 두신 코드를 5단계에서 복원해 두었습니다.
+        // 장시간 학습을 감안해 글자 크기·행간을 본문 코드보다 넉넉하게 잡고,
+        // 옅은 테두리로 배경과의 경계를 분명히 합니다 (Dark 대비 개선, V2 검토 반영).
         "& pre": {
           bgcolor: "action.hover",
+          border: "1px solid",
+          borderColor: "divider",
           p: 2,
           borderRadius: 1,
           overflowX: "auto",
-          fontSize: "0.85rem",
-          lineHeight: 1.6,
+          fontSize: "0.9rem",
+          lineHeight: 1.7,
         },
         "& code": {
           fontFamily: "'D2Coding', 'Consolas', monospace",
-          fontSize: "0.875em",
+          fontSize: "0.9em",
         },
         // 문장 속 코드에만 배경을 넣습니다 (코드블록 안에는 넣지 않습니다)
         "& :not(pre) > code": {
@@ -107,7 +127,11 @@ export function Markdown({ children }: { children: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          h1: ({ children }) => <Box component={DEMOTED_HEADINGS.h1}>{children}</Box>,
+          h1: ({ children }) => (
+            <Box id={assignId(flattenText(children))} component={DEMOTED_HEADINGS.h1}>
+              {children}
+            </Box>
+          ),
           h2: ({ children }) => <Box component={DEMOTED_HEADINGS.h2}>{children}</Box>,
           h3: ({ children }) => <Box component={DEMOTED_HEADINGS.h3}>{children}</Box>,
           h4: ({ children }) => <Box component={DEMOTED_HEADINGS.h4}>{children}</Box>,

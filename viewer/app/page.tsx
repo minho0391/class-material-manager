@@ -129,16 +129,53 @@ npm run refresh`}
         393건을 늘어놓기 전에, 바로 읽을 수 있게 갖춰진 자료로 안내합니다.
       */}
       {learning.length > 0 && (
-        <Card variant="outlined" sx={{ mb: 5, borderColor: "primary.main" }}>
-          <NavCardArea href="/learn" sx={{ p: 3, alignItems: "flex-start" }}>
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
-              🎓 통합 학습자료 {learning.length}편부터 시작하세요
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              강사 수업 설명에 실제 실습 코드 {learningCode}개와 공식 문서를 함께 붙여 두었습니다.
-              설명 → 실습 코드 → 공식 문서 순서로 이어서 읽을 수 있습니다.
-            </Typography>
-            <Chip size="small" color="primary" label="학습자료 보러 가기 →" />
+        <Card
+          variant="outlined"
+          sx={{
+            mb: 5,
+            borderColor: "primary.main",
+            // 첫 행동을 눈에 띄게 — 통계 카드보다 이 카드가 먼저 눈에 들어와야 합니다.
+            // 서버 컴포넌트에서는 라이트/다크를 직접 분기할 함수를 넘길 수 없으므로,
+            // lib/theme.ts 가 스킴별로 이미 다르게 정의해 둔 팔레트 토큰(action.selected)을 그대로 씁니다.
+            bgcolor: "action.selected",
+          }}
+        >
+          {/*
+            가로형 배너 — design-mockups-v2 01번(홈) 기준.
+            아이콘 · 설명 · CTA 를 한 줄에 두어 "다음 행동"이 세로 카드보다 바로 보이게 합니다.
+          */}
+          <NavCardArea href="/learn" sx={{ p: 3, flexDirection: "row", alignItems: "center", gap: 2 }}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                flexShrink: 0,
+                borderRadius: 1.5,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.4rem",
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+              }}
+            >
+              🎓
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                통합 학습자료 {learning.length}편부터 시작하세요
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                강사 수업 설명에 실제 실습 코드 {learningCode}개와 공식 문서를 함께 붙여 두었습니다.
+                설명 → 실습 코드 → 공식 문서 순서로 이어서 읽을 수 있습니다.
+              </Typography>
+            </Box>
+            <Chip
+              size="small"
+              color="primary"
+              label="학습자료 보러가기 →"
+              sx={{ flexShrink: 0, display: { xs: "none", sm: "inline-flex" } }}
+            />
           </NavCardArea>
         </Card>
       )}
