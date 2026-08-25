@@ -22,3 +22,9 @@ viewer/tsconfig.tsbuildinfo
 # Playwright
 test-results/
 playwright-report/
+
+# E2E 로그인 상태 저장 파일 (실제 세션 쿠키가 들어 있습니다)
+e2e/.auth/
+
+.vercel
+.env*

@@ -1,3 +1,7 @@
 node_modules/
 .next/
 next-env.d.ts
+
+# Supabase 키 등 실제 값 (.env.example 은 예외 — 실제 값이 없는 견본입니다)
+.env*
+!.env.example
