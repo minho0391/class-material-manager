@@ -1,0 +1,86 @@
+# 24시간 주기 백그라운드 자동 갱신의 실제 실행 위치.
+#
+# ■ 왜 GitHub Actions인가
+#
+# Vercel에 배포된 뷰어는 서버리스 함수라 로컬 data/ 폴더도, Google Drive 인증 정보도
+# 갖고 있지 않습니다 (둘 다 로컬 전용이며 원본 수업자료를 클라우드로 옮기지 않는다는
+# 프로젝트 원칙 때문에 의도적으로 그렇게 되어 있습니다). 그래서 Vercel은 "24시간이
+# 지났는지 감지하고 claim을 얻는 것"까지만 하고, 실제 재수집·재가공·Supabase 반영은
+# 이 워크플로우가 맡습니다 — 기존 `refresh`/`sync-supabase` 코드를 수정 없이 그대로 씁니다.
+#
+# ■ 트리거
+#
+# 사람이 수동으로 돌릴 수도 있고(workflow_dispatch), Vercel이 claim을 얻었을 때
+# repository_dispatch(event_type: material-refresh)로 원격 트리거합니다.
+# client_payload.claim_token 을 REFRESH_CLAIM_TOKEN 으로 넘겨받아 `ci-refresh` 가
+# 그 claim으로만 결과를 보고합니다(다른 claim을 건드릴 수 없습니다).
+#
+# ■ 필요한 Repository secrets (Settings → Secrets and variables → Actions)
+#
+#   GOOGLE_CREDENTIALS_JSON    로컬 credentials.json 파일 내용 그대로
+#   GOOGLE_TOKEN_JSON          로컬 data/token.json 파일 내용 그대로 (refresh_token 포함)
+#   NEXT_PUBLIC_SUPABASE_URL   Supabase 프로젝트 URL (viewer/.env.local 과 같은 값)
+#   SUPABASE_SERVICE_ROLE_KEY  Supabase 대시보드 → Settings → API → service_role
+#
+# GITHUB_TOKEN 은 GitHub Actions가 매 실행마다 자동으로 만들어 주므로 따로 등록할 필요가
+# 없습니다 (enrich 단계의 공식 문서 API 요청 한도를 늘리는 용도로만 씁니다).
+name: 자료 자동 갱신
+
+on:
+  repository_dispatch:
+    types: [material-refresh]
+  workflow_dispatch:
+    inputs:
+      claim_token:
+        description: "Supabase SQL 편집기에서 select claim_token from try_claim_refresh(); 로 직접 발급받은 토큰 (수동 실행도 결과를 정상 보고하려면 필요합니다)"
+        required: true
+
+# 이 워크플로우 자체도 동시에 두 번 실행되지 않도록 막아 둡니다.
+# (Supabase의 claim이 이미 원자적 잠금이지만, Actions 잡 자체가 겹쳐 도는 것도
+# 굳이 허용할 이유가 없습니다 — 어차피 나중 실행은 claim을 못 얻어 곧바로 실패합니다)
+concurrency:
+  group: material-refresh
+  cancel-in-progress: false
+
+# 최소 권한 — 이 워크플로우는 저장소를 체크아웃하고(읽기), 공식 문서 수집 단계에서
+# GitHub API 요청 한도를 늘리는 용도로만 GITHUB_TOKEN을 씁니다. 그 이상은 필요 없습니다.
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: Google 인증 정보 준비 (기존 collect/auth 코드를 그대로 씁니다)
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+        run: |
+          if [ -z "$GOOGLE_CREDENTIALS_JSON" ] || [ -z "$GOOGLE_TOKEN_JSON" ]; then
+            echo "GOOGLE_CREDENTIALS_JSON / GOOGLE_TOKEN_JSON secret이 등록되어 있지 않습니다." >&2
+            exit 1
+          fi
+          mkdir -p data
+          printf '%s' "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          printf '%s' "$GOOGLE_TOKEN_JSON" > data/token.json
+          # 같은 잡 안의 다른 프로세스(설치 스크립트 등)가 기본 권한으로 열어 볼 수 없도록 좁힙니다.
+          chmod 600 credentials.json data/token.json
+
+      - name: 자동 갱신 실행 (refresh → sync-supabase → 검증 → 결과 보고)
+        env:
+          REFRESH_CLAIM_TOKEN: ${{ github.event.client_payload.claim_token || github.event.inputs.claim_token }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node src/index.ts ci-refresh

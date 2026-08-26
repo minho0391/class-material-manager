@@ -3,7 +3,7 @@
 이 문서는 사용자, Claude Code, Codex가 이 프로젝트의 확정된 목적·구조·기획·디자인·기술
 결정사항을 공통으로 참조하기 위한 지속적인 프로젝트 컨텍스트 문서입니다.
 
-마지막 갱신일: 2026-08-25
+마지막 갱신일: 2026-08-26
 
 ---
 
@@ -24,8 +24,12 @@
   코드의 `TOTAL_STEPS`는 10입니다.)
 - **데이터 저장(현재)**: 원본 수업자료·실습자료와 파이프라인 산출물(`index.json`,
   `relations.json`, `learning.json`, `comparisons.json`, `study-guides.json`,
-  `collect-status.json` 등)이 모두 로컬 `data/` 폴더의 JSON/Markdown 파일로만 존재합니다.
-  `data/`는 `.gitignore` 대상이며, Supabase 등 외부 DB로는 아직 이전되지 않았습니다.
+  `collect-status.json` 등)은 여전히 로컬 `data/` 폴더의 JSON/Markdown 파일이 **1차 저장소**입니다
+  (`data/`는 `.gitignore` 대상이며, 뷰어는 지금도 이 파일들을 직접 읽습니다). 2026-08-26에 이
+  산출물 중 자료 메타데이터·재가공 데이터를 Supabase Postgres 5개 테이블(`material_metadata`·
+  `relations`·`learning_documents`·`comparisons`·`study_guides`)로 이관해 대조 검증까지
+  마쳤습니다 — 자세한 스키마와 이관 결과는 아래 "Supabase DB 이관 (완료)" 절 참고. 원본 파일
+  자체(`data/materials/` 등)는 이 이관 대상에 포함되지 않았습니다.
 - **뷰어**: Next.js 16 + MUI (`viewer/`). 수업자료 화면은 **읽기 전용**입니다 —
   `viewer/lib/data.ts`에 파일을 쓰거나 지우는 코드가 없고, 자료용 API 라우트도 없습니다.
   주소로 들어온 ID는 `index.json`에 등록된 값과 대조한 뒤에만 파일을 엽니다.
@@ -38,8 +42,11 @@
   RLS 정책, DB 마이그레이션/스키마 파일은 프로젝트 어디에도 없습니다. `viewer/README.md`에
   "나중에 자료마다 '내 것'을 구분할 일이 생기면 ... 이 로그인은 그 구조를 미리 준비해 둔 것"이라고
   명시되어 있어, 현재는 로그인 기능만 있고 사용자별 데이터 스키마는 **향후 계획** 단계입니다.
-- **Supabase 사용 범위(현재)**: 현재 코드에서 Supabase는 인증(로그인/로그아웃) 용도로만 쓰이고
-  있습니다. 수업자료나 가공 데이터를 저장하는 Supabase 테이블·스키마는 아직 없습니다.
+- **Supabase 사용 범위(현재)**: 인증(로그인/로그아웃)에 더해, 2026-08-26부터 자료 메타데이터와
+  프로젝트 재가공 데이터도 Supabase Postgres에 저장됩니다(5개 테이블, 아래 절 참고). 단, **뷰어
+  화면은 아직 이 테이블을 읽지 않습니다** — `viewer/lib/data.ts`는 지금도 로컬 `data/` 파일만
+  읽고, DB 테이블을 조회하는 코드는 이번 작업 범위에 없습니다. 이번에 만든 것은 CLI 쪽 이관
+  스크립트(`npm run` 대상은 아니고 `node src/index.ts sync-supabase`)뿐입니다.
 - **디자인 시안**: `design-mockups/`(v1)와 `design-mockups-v2/`(v2, 5장: 홈, 자료 상세
   Light/Dark, 다시 공부하기, 수업 방식 점검)가 프로젝트 루트에 존재합니다.
 - **프로젝트 루트 문서**: `CLAUDE.md`(Autonomous work rules, 2026-08-25 작성)가 프로젝트 루트에
@@ -128,8 +135,230 @@
 - 원본 파일을 Supabase Storage로 일괄 이전하는 것은 현재 결정사항이 아닙니다.
 - 아직 실제 Supabase DB 스키마가 확정되지 않은 부분은 임의로 확정하지 말고 향후 설계로 구분합니다.
 
-**현재 구현 상태**: 위 저장 대상 목록은 전부 향후 계획입니다. 현재 코드에는 이 목록에 해당하는
-Supabase 테이블이나 스키마가 구현되어 있지 않으며, 파이프라인 산출물은 여전히 전부 로컬 `data/` 파일입니다.
+**현재 구현 상태**: 위 저장 대상 목록 중 "자료 메타데이터·학습용 가공 결과·점검 결과·복습
+우선순위·공식 문서 연결 정보"는 아래 "Supabase DB 이관" 절의 5개 테이블로 실제 이관을
+완료했습니다. "사용자별 학습 진도·메모·복습 상태" 등 사용자별 동적 데이터는 여전히 **향후
+계획**입니다 — 이번 이관에는 `user_id`를 쓰는 테이블이나 RLS 정책이 포함되지 않았습니다.
+파이프라인 자체는 지금도 로컬 `data/` 파일에만 쓰고, Supabase 이관은 그 결과물을 별도
+CLI 명령(`sync-supabase`)으로 뒤이어 올리는 구조입니다 (파이프라인이 자동으로 올리지 않습니다).
+
+### Supabase DB 이관 (완료, 2026-08-26)
+
+`docs/SUPABASE-SCHEMA-DESIGN.md`(설계안, 2026-08-25 작성)가 제안한 테이블 이름
+(`materials`/`study_priorities`/`comparison_topics`/`user_material_state`)과 실제로 Supabase
+콘솔에 만들어진 테이블 이름은 다릅니다. **실제 적용된 확정 스키마는 아래 5개이며, 이 문서가
+최신 기준입니다.**
+
+**확정 스키마 (5개 테이블, Supabase 콘솔에서 생성됨)**
+
+| 테이블 | 역할 | PK | 주요 FK |
+|---|---|---|---|
+| `material_metadata` | `index.json` 자료 메타데이터(본문 아님) | `source_id` (= docId) | — |
+| `relations` | 설명자료 ↔ 실습zip 연결 근거 (`relations.json`) | `id` (bigint) | `material_id`, `zip_id` → `material_metadata.source_id` |
+| `learning_documents` | 통합 학습자료 (`learning.json`, 실습 코드 원문 제외) | `material_id` | → `material_metadata.source_id` |
+| `comparisons` | 수업 당시 방식 ↔ 공식 문서 점검 결과 (`comparisons.json`) | `id` (= comparisonId) | `material_id` → `material_metadata.source_id` (nullable, 대표 자료 1건) |
+| `study_guides` | 복습 우선순위·설명 (`study-guides.json`의 `guides[]`) | `comparison_id` | → `comparisons.id`, `material_id` → `material_metadata.source_id` |
+
+- **원본 본문 미저장 원칙 준수**: `material_metadata`는 `index.json`의 메타데이터만 담고
+  (`file_path`는 위치만, 본문 없음), `learning_documents`의 `source_files`는 실습 코드의
+  **경로·언어·고른 이유만** 담아 `practice[].sourceFiles[].code`(코드 원문)는 옮기지 않았습니다.
+  코드 본문은 지금도 뷰어가 로컬 `learning.json`에서 그대로 읽습니다.
+- **M:N 관계는 jsonb로 보존**: `comparisons`·`study_guides`의 `material_id`는 단일 FK 컬럼이라
+  대표 자료 1건만 가리키지만, 실제로는 자료 하나가 여러 수업자료·여러 실습zip에 걸칠 수 있어
+  전체 목록(`lessons`/`taughtIn`/`usedIn`/`materials`/`practice` 등)을 각 테이블의 `details`
+  (jsonb)에 손실 없이 그대로 보존했습니다. 스키마를 바꾸지 않고도 데이터 손실이 없도록 한
+  선택입니다.
+- **`study-guides.json`의 자료별 요약(89건, `materials[]`)**: 별도 테이블이 없어
+  `material_metadata.extra.studyPriority`(jsonb, 자료당 1건이라 자연스럽게 대응)에 담았습니다.
+- **이관 방식**: 전부 `upsert`(`on_conflict` = PK)만 사용했고 `DELETE`는 한 번도 실행하지
+  않았습니다. 이관 전 이미 부분 이관돼 있던 `material_metadata` 130건도 충돌 없이 나머지와
+  합쳐졌습니다.
+
+**이관 결과 (2026-08-26 실행, `node src/index.ts sync-supabase` 자체 검증 통과)**
+
+| 테이블 | 원본 JSON 건수 | DB 건수 | 누락 | 중복 | FK 고아행 |
+|---|---|---|---|---|---|
+| `material_metadata` | 393 | **393** | 0 | 0 | — |
+| `relations` | 62 | 62 | 0 | 0 | 0 |
+| `learning_documents` | 27 | 27 | 0 | 0 | 0 |
+| `comparisons` | 355 | 355 | 0 | 0 | 0 |
+| `study_guides` | 355 | 355 | 0 | 0 | 0 |
+
+단순 COUNT(*) 비교가 아니라 `index.json`의 `docId` 집합과 DB의 `source_id` 집합을 실제로
+대조했고(다른 4개 테이블도 각자의 원본 id 집합과 대조), 4개 FK 관계(`relations`→자료 2개,
+`comparisons`/`study_guides`→자료, `study_guides`→`comparisons`) 모두 고아 행이 없었습니다.
+
+**이번 작업에서 추가한 파일** (모두 신규, 기존 파일 수정은 `src/index.ts`에 CLI 명령 추가뿐):
+
+- `src/sync/env.ts` — Supabase 접속 환경변수 로딩
+- `src/sync/postgrest-client.ts` — PostgREST upsert/select 얇은 클라이언트 (SDK 의존성 추가 없음)
+- `src/sync/stable-id.ts` — `relations.id`용 결정적 정수 생성 (materialId+zipId 해시)
+- `src/sync/build-material-metadata.ts`, `build-relations.ts`, `build-learning-documents.ts`,
+  `build-comparisons.ts`, `build-study-guides.ts` — JSON → DB 행 변환 (테이블별)
+- `src/sync/sync-runner.ts` — 5개 테이블을 FK 순서대로 upsert
+- `src/sync/verify.ts` — 원본과 DB 대조 검증 (건수·누락·중복·FK 고아행)
+- CLI: `node src/index.ts sync-supabase` (환경변수: `NEXT_PUBLIC_SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY`) — 이관과 검증을 한 번에 실행합니다. 재실행해도 upsert라
+  안전하며, 앞으로 데이터가 바뀔 때마다 다시 실행해 동기화하는 용도로 재사용할 수 있습니다.
+
+**아직 하지 않은 것 (다음 구현 단계로 남김)**:
+
+- 뷰어가 이 5개 테이블을 읽도록 바꾸는 것 — 이번 작업 범위 밖입니다. 뷰어는 지금도 로컬
+  `data/` 파일만 읽습니다. 아래 "첫 접속 트리거 24시간 자동 갱신"도 이 원칙을 그대로
+  따릅니다 — 갱신 트리거·claim/lock·타임스탬프만 다루고, 화면이 읽는 데이터 소스 자체는
+  바꾸지 않았습니다.
+
+### 첫 접속 트리거 24시간 주기 백그라운드 자동 갱신 (완료, 2026-08-26)
+
+이전 절의 "하루 첫 접속 자동 갱신(다음 구현 단계)" 설계를 대체합니다 — "오늘 첫 갱신인지"
+(자정·KST 날짜 기준)라는 초안 대신, 실제로는 **"마지막 성공 갱신 시각 + 24시간"** 을
+기준으로 확정해 구현했습니다.
+
+**동작 방식**
+
+1. 사용자가 뷰어에 접속하면 화면은 항상 기존 데이터를 즉시 보여줍니다 — 자동 갱신 여부
+   확인이나 실행을 절대 기다리지 않습니다.
+2. `viewer/proxy.ts`(Next.js 16 미들웨어, 정적 자산을 뺀 거의 모든 요청을 거칩니다)가
+   매 요청마다 Next.js의 `after()`로 `viewer/lib/refresh/trigger.ts`를 응답을 보낸
+   **뒤에** 실행합니다. `/`, `/learn`, `/login`처럼 정적으로 미리 만들어지는 페이지는
+   요청마다 서버 코드가 다시 돌지 않으므로, 반드시 모든 요청이 실제로 거치는 미들웨어에서
+   합니다 (레이아웃에 두면 정적 페이지에서는 아예 실행되지 않습니다).
+3. `trigger.ts`는 Supabase RPC `try_claim_refresh()`를 호출해 "지금이 갱신할 때인가"를
+   원자적으로 확인·획득(claim)합니다. 대부분의 요청은 아직 24시간이 안 지났거나 이미 다른
+   요청이 갱신 중이라 빈 결과를 받고 그대로 끝납니다 — 이게 정상 동작입니다.
+4. claim에 성공한 요청만 GitHub Actions 워크플로우
+   (`.github/workflows/material-refresh.yml`)를 `repository_dispatch` API로 원격
+   트리거합니다. **실제 재수집·재가공·Supabase 반영은 Vercel이 아니라 이 워크플로우가
+   합니다** — 이유는 아래 "왜 Vercel이 직접 갱신하지 않는가" 참고.
+5. 워크플로우는 기존 `refresh()`(12단계 파이프라인)와 `syncSupabase()`/`verifySupabase()`를
+   코드 수정 없이 그대로 불러 새 데이터를 만들고 Supabase에 반영·검증합니다
+   (`node src/index.ts ci-refresh` → `src/refresh/auto-refresh.ts`).
+6. 검증까지 전부 성공했을 때만 Supabase RPC `release_refresh(claim_token, success=true)`로
+   `last_success_at`을 갱신합니다. 그 순간부터 다음 24시간이 다시 시작됩니다.
+7. 지금 접속한 사용자의 화면은 갱신 완료 후에도 강제로 새로고침되지 않습니다 — 다음
+   요청부터 자연히 새 데이터를 씁니다.
+
+**"마지막 성공 + 24시간" 기준**
+
+특정 시각(자정 등)이 아니라 `last_success_at + 24시간`을 다음 갱신 가능 시점으로
+씁니다. 성공 시각만 이 타이머를 다시 시작시키고, 시도했다는 사실만으로는 시작되지
+않습니다.
+
+**실패 처리와 쿨다운**
+
+- 실패(파이프라인 중단, Supabase 반영 오류, 검증 실패 중 하나라도)해도 `last_success_at`은
+  그대로 두고 `last_failure_at`/`last_error`만 남깁니다 — 실패를 성공으로 기록하지 않고,
+  기존 정상 데이터도 건드리지 않습니다 (upsert만 쓰므로 애초에 기존 행을 지우지 않습니다).
+- 24시간이 지난 뒤 시도가 실패하면, 그 실패 시각부터 **1시간**(기본값) 동안은 재시도하지
+  않습니다. 1시간이 지난 뒤 들어오는 요청부터 다시 claim을 시도할 수 있습니다.
+  (`try_claim_refresh`의 `p_failure_cooldown_seconds` 기본값 — 프로젝트 구조상 이 값을
+  바꿔야 할 특별한 이유가 없어 사용자가 제시한 기본값을 그대로 채택했습니다.)
+
+**동시성 제어**
+
+`try_claim_refresh`는 `UPDATE ... WHERE ... RETURNING`(Postgres에서 행 단위로 원자적)
+하나로 claim을 원자적으로 수행합니다. 여러 요청이 동시에 불러도 조건을 만족하는 것 중
+정확히 하나만 `claim_token`을 받고, 나머지는 빈 결과를 받아 그대로 기존 데이터를
+돌려줍니다. `release_refresh`도 `claim_token`이 일치할 때만 반영되므로, 뒤늦게 들어온
+결과 보고가 그 사이 새로 발급된 claim을 덮어쓸 수 없습니다.
+
+**stale lock 처리**
+
+작업 도중 GitHub Actions 러너가 죽거나 응답을 못 보내는 경우를 대비해, `running` 상태가
+**90분**(기본값)보다 오래 지속되면 죽은 작업으로 보고 다음 claim이 회수합니다. 워크플로우의
+`timeout-minutes: 60`보다 여유 있게 잡아, 정상 실행이 아직 끝나지 않았는데 회수되는
+일이 없도록 했습니다.
+
+**DB 구조 (신규, 마이그레이션으로 적용)**
+
+- 마이그레이션 파일: `supabase/migrations/20260826081927_create_refresh_state.sql`
+  (Supabase에도 같은 이름으로 이미 적용되어 있습니다 — `supabase migration list`로 확인
+  가능합니다. 기존 5개 테이블 스키마는 이 저장소에 마이그레이션 파일이 없는 채로 이미
+  적용되어 있던 상태였는데, 이번 것부터는 파일로도 남겨 fresh clone에서
+  `supabase db push`로도 재현할 수 있게 했습니다).
+- `refresh_state` 테이블 — 행 하나(`job_name = 'material_sync'`)만 씁니다.
+  `status`(`idle`/`running`), `claim_token`, `claimed_at`, `last_success_at`,
+  `last_attempt_at`, `last_failure_at`, `last_error`, `updated_at`. 기존 5개 테이블과
+  같은 패턴으로 RLS는 켜 두고 정책은 만들지 않았습니다 — `service_role`만 접근합니다.
+- `try_claim_refresh(p_job_name, p_min_interval_seconds=86400, p_failure_cooldown_seconds=3600, p_stale_lock_seconds=5400)`
+  — 원자적 claim. `SECURITY DEFINER`, 실행 권한은 `service_role`에만 부여했습니다.
+- `release_refresh(p_job_name, p_claim_token, p_success, p_error)` — 결과 보고.
+  마찬가지로 `service_role` 전용입니다.
+
+**백그라운드 실행 방식과 그 이유**
+
+- **왜 Vercel이 직접 갱신하지 않는가**: Vercel에 배포된 뷰어는 서버리스 함수라 로컬
+  `data/` 폴더도, Google Drive 인증 정보(`credentials.json`/`data/token.json`, 로컬
+  전용)도 갖고 있지 않습니다 — 원본 수업자료를 클라우드로 옮기지 않는다는 기존 원칙
+  때문에 둘 다 의도적으로 로컬 전용입니다. 그래서 Vercel(뷰어)은 "24시간이 지났는지
+  감지 + claim 획득 + GitHub Actions 원격 트리거"까지만 하고, 실제 재수집·재가공·Supabase
+  반영은 GitHub Actions가 맡습니다. 이 설계는 사용자에게 직접 확인받았습니다
+  (대안: Vercel로 Google 인증정보를 옮겨 Vercel에서 전체 파이프라인을 도는 방식은
+  "원본은 로컬에만" 원칙과 크게 부딪혀 채택하지 않았습니다).
+- Vercel 쪽 트리거는 Next.js `after()`로 응답 전송 뒤에 실행되며, 실패해도(네트워크 오류,
+  GitHub API 실패 등) 내부에서 예외를 삼키고 `release_refresh`로 실패 보고까지 시도합니다
+  — 실패해도 결국 stale lock 만료로 풀리므로 영구히 막히지 않습니다.
+- **필요한 자격 증명 (직접 등록 필요, 이번 작업에서 자동으로 등록하지 않았습니다)**:
+  - GitHub repo secrets(Settings → Secrets and variables → Actions):
+    `GOOGLE_CREDENTIALS_JSON`(로컬 `credentials.json` 내용), `GOOGLE_TOKEN_JSON`
+    (로컬 `data/token.json` 내용), `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+  - Vercel 환경변수(Production/Preview): `GH_DISPATCH_TOKEN`(이 저장소에
+    `repository_dispatch`를 보낼 수 있는 새 GitHub PAT — fine-grained라면 Contents:
+    Read and write, classic이면 `repo` scope), `SUPABASE_SERVICE_ROLE_KEY`(로컬
+    `.env.local`과 같은 값 — 이 값은 실제로 로컬 `viewer/.env.local`에는 추가해
+    두었지만, Vercel 원격 환경변수 등록은 Claude Code의 자동 모드 안전장치가
+    "인증정보를 새 시스템에 심는 조작"으로 판단해 막았으므로 사용자가 직접 등록해야
+    합니다).
+  - 이 중 하나라도 없으면 자동 갱신 감지 자체가 조용히 아무 일도 하지 않고 건너뜁니다
+    (로그인·자료 열람 등 나머지 기능에는 영향이 없습니다).
+
+**검증 결과 (2026-08-26)**
+
+- `try_claim_refresh`/`release_refresh`를 실제 Supabase 프로젝트에 대고 SQL로 직접
+  호출해 다음을 확인했습니다: 최초 claim 성공 · 동시 claim 시도 시 두 번째는 빈 결과 ·
+  잘못된 토큰으로 release 시 무시 · 성공 보고 시 `last_success_at` 갱신 · 24시간 이내
+  재claim 차단 · 24시간 경과 후 claim 성공 · 실패 보고 시 `last_success_at` 유지하며
+  `last_failure_at`/`last_error`만 기록 · 쿨다운 이내 재claim 차단 · 쿨다운 경과 후
+  재claim 성공 · 90분 stale lock 회수.
+- 루트 `npm run typecheck`·`npm test`(187건 전부 통과)·`node src/index.ts security-check
+  --skip-data`(git 추적 대상에 민감정보 의심 문자열 없음) 통과.
+- `viewer`에서 `npm run typecheck`·`npm run build` 통과 — `/`, `/learn`, `/login`이
+  여전히 정적(○)으로, 나머지가 동적(ƒ)으로 유지되는 것을 확인했습니다 (미들웨어에 둔
+  덕분에 자동 갱신 감지가 이 정적 분류에 영향을 주지 않습니다).
+- 로컬 `next dev`로 실제 운영 Supabase 프로젝트를 대상으로 종단 간(end-to-end) 확인:
+  홈 화면 요청 → 실제 claim 성공 → `GH_DISPATCH_TOKEN` 미설정으로 GitHub Actions 트리거
+  실패 → 실패로 정상 보고(`last_success_at` 그대로, `last_failure_at`/`last_error` 기록)
+  → `refresh_state`를 다시 초기 상태로 정리. GitHub Actions 워크플로우 자체(Google 인증
+  포함 실제 파이프라인 실행)는 위 secrets를 사용자가 등록해야 실행할 수 있어 이번에는
+  트리거 단계까지만 실제로 검증했습니다.
+- 구현 완료 후 Codex 독립 리뷰를 받아 실제로 반영했습니다:
+  1) `supabase/migrations/`에 이 스키마의 로컬 마이그레이션 파일이 빠져 있던 문제 →
+  위 파일 추가로 해결. 2) `ci-refresh`의 성공 판정이 `summary.stopped`만 봐서, `stopped`
+  로 이어지지 않는 개별 단계 실패(예: Google 인증 실패)를 성공으로 잘못 보고할 수 있던
+  문제 → `npm run refresh`와 같은 기준("실패" 상태 단계가 하나라도 있으면 실패)으로
+  수정. 3) `hasVerifyProblems`가 `relations`의 `missingRelationIds`를 누락하던 문제 →
+  검사 항목 추가. 4) GitHub Actions 트리거용 `fetch`가 네트워크 오류로 예외를 던지면
+  `release_refresh` 실패 보고 없이 claim이 90분 stale lock까지 묶이던 문제 →
+  `dispatchWorkflow` 내부에서 예외까지 잡아 항상 실패 보고하도록 수정. 5)
+  `release_refresh` 호출 자체가 실패해도 조용히 넘어가던 것 → 응답 상태를 확인해 경고를
+  남기도록 보강. 6) 워크플로우에 최소 권한(`permissions: contents: read`)과 자격증명
+  파일 권한(`chmod 600`) 추가. 수정 후 typecheck·test·build·security-check와
+  실제 Supabase를 대상으로 한 종단 간 스모크 테스트를 다시 통과시켰습니다.
+
+**이후 유지보수 시 주의사항**
+
+- 위 "필요한 자격 증명" 4+2개를 등록해야 기능이 실제로 끝까지 동작합니다. 등록 전에는
+  안전하게 아무 일도 하지 않을 뿐 기존 기능에는 영향이 없습니다.
+- `refresh()`/`syncSupabase()`/`verifySupabase()`의 동작을 바꾸면 `ci-refresh`
+  (`src/refresh/auto-refresh.ts`)의 성공/실패 판정 기준(`summary.steps`에 "실패" 상태가
+  있는지, `hasVerifyProblems`)도 같이 봐야 합니다 — 특히 `hasVerifyProblems`
+  (`src/sync/verify.ts`)는 `sync-supabase` CLI가 화면에 찍는 것과 같은 조건(그리고
+  `missingRelationIds` 등 CLI 쪽에 없던 추가 검사)을 담고 있으므로, 검증 조건을 한쪽만
+  고치면 둘이 어긋납니다.
+- claim/쿨다운/stale-lock 기본값(24시간/1시간/90분)은 `try_claim_refresh` 함수의 SQL
+  기본 인자값 한 곳에만 있습니다 — 바꾸려면 마이그레이션으로 함수를 다시 만들면 됩니다.
+- GitHub Actions 워크플로우의 `timeout-minutes`을 늘리면 stale lock 기준(90분)도 그보다
+  여유 있게 함께 늘려야, 정상 실행 중인 작업이 중간에 다른 claim에 회수당하지 않습니다.
 
 ### AI 협업 원칙
 

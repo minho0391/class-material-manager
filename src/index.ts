@@ -48,6 +48,9 @@ import {
   restoreBackup,
 } from "./backup/backup-runner.ts";
 import { PRIORITY_LABEL, PRIORITY_MEANING } from "./study/study-builder.ts";
+import { syncSupabase } from "./sync/sync-runner.ts";
+import { verifySupabase } from "./sync/verify.ts";
+import { runAutoRefresh } from "./refresh/auto-refresh.ts";
 import * as log from "./utils/logger.ts";
 
 /** 종류를 사람이 읽을 수 있는 한국어 이름으로 바꿉니다. (출력용) */
@@ -1100,6 +1103,124 @@ async function runCompare(args: string[]): Promise<void> {
   }
 }
 
+/**
+ * data/*.json 을 Supabase 5개 테이블(material_metadata·relations·learning_documents·
+ * comparisons·study_guides)로 upsert하고, 곧바로 원본과 대조 검증합니다.
+ *
+ * 강사 원본 자료 본문은 그대로 두고 index.json 의 메타데이터와 프로젝트가 재가공한
+ * 데이터만 올립니다 (자세한 원칙은 PROJECT_CONTEXT.md 참고).
+ */
+async function runSyncSupabase(): Promise<void> {
+  log.step("Supabase 로 이관합니다");
+  log.detail("강사 원본 자료 본문은 옮기지 않습니다 — 메타데이터·재가공 데이터만 upsert합니다");
+
+  const summary = await syncSupabase();
+
+  log.info("");
+  log.detail(`material_metadata   ${summary.materialMetadata}건`);
+  log.detail(`relations           ${summary.relations}건`);
+  log.detail(`learning_documents  ${summary.learningDocuments}건`);
+  log.detail(`comparisons         ${summary.comparisons}건`);
+  log.detail(`study_guides        ${summary.studyGuides}건`);
+
+  log.step("이관 결과를 원본 JSON과 대조합니다");
+  const report = await verifySupabase();
+
+  let hasProblem = false;
+
+  const printSetDiff = (
+    label: string,
+    diff: { jsonCount: number; dbCount: number; missingInDb: string[]; extraInDb: string[] },
+    duplicatesInJson: string[],
+  ) => {
+    log.info(`\n${label}`);
+    log.detail(`  원본(JSON) ${diff.jsonCount}건 / DB ${diff.dbCount}건`);
+    if (diff.missingInDb.length > 0) {
+      hasProblem = true;
+      log.error(`  누락 ${diff.missingInDb.length}건: ${diff.missingInDb.slice(0, 10).join(", ")}`);
+    } else {
+      log.success("  누락 없음");
+    }
+    if (diff.extraInDb.length > 0) {
+      log.warn(`  DB에만 있는 행 ${diff.extraInDb.length}건 (다른 시험/이전 데이터일 수 있음)`);
+    }
+    if (duplicatesInJson.length > 0) {
+      hasProblem = true;
+      log.error(`  원본 JSON 중복 ID ${duplicatesInJson.length}건: ${duplicatesInJson.join(", ")}`);
+    } else {
+      log.success("  중복 없음");
+    }
+  };
+
+  printSetDiff("material_metadata", report.materialMetadata, report.materialMetadata.duplicatesInJson);
+
+  log.info("\nrelations");
+  log.detail(`  원본(JSON) ${report.relations.jsonCount}건 / DB ${report.relations.dbCount}건`);
+  if (report.relations.jsonCount !== report.relations.dbCount) {
+    hasProblem = true;
+    log.error("  건수가 다릅니다");
+  } else {
+    log.success("  건수 일치");
+  }
+  if (report.relations.orphanMaterialIds.length > 0 || report.relations.orphanZipIds.length > 0) {
+    hasProblem = true;
+    log.error(
+      `  FK 고아행 — material_id ${report.relations.orphanMaterialIds.length}건, zip_id ${report.relations.orphanZipIds.length}건`,
+    );
+  } else {
+    log.success("  FK 정상");
+  }
+
+  printSetDiff("learning_documents", report.learningDocuments, report.learningDocuments.duplicatesInJson);
+  if (report.learningDocuments.orphanMaterialIds.length > 0) {
+    hasProblem = true;
+    log.error(`  FK 고아행(material_id) ${report.learningDocuments.orphanMaterialIds.length}건`);
+  }
+
+  printSetDiff("comparisons", report.comparisons, report.comparisons.duplicatesInJson);
+  if (report.comparisons.orphanMaterialIds.length > 0) {
+    hasProblem = true;
+    log.error(`  FK 고아행(material_id) ${report.comparisons.orphanMaterialIds.length}건`);
+  }
+
+  printSetDiff("study_guides", report.studyGuides, report.studyGuides.duplicatesInJson);
+  if (report.studyGuides.orphanComparisonIds.length > 0 || report.studyGuides.orphanMaterialIds.length > 0) {
+    hasProblem = true;
+    log.error(
+      `  FK 고아행 — comparison_id ${report.studyGuides.orphanComparisonIds.length}건, material_id ${report.studyGuides.orphanMaterialIds.length}건`,
+    );
+  }
+
+  log.info("");
+  if (hasProblem) {
+    log.error("검증에서 문제를 찾았습니다. 위 내용을 확인하세요.");
+    process.exitCode = 1;
+  } else {
+    log.success("모든 테이블이 원본과 일치하고 FK 고아행이 없습니다.");
+  }
+}
+
+/**
+ * ci-refresh 명령 — 24시간 자동 갱신이 GitHub Actions에서 실제로 부르는 명령입니다.
+ *
+ * 사람이 직접 실행할 일은 거의 없습니다 (직접 갱신하려면 평소처럼 `npm run refresh` 를
+ * 쓰세요). Vercel이 claim을 획득하면 이 claim_token을 REFRESH_CLAIM_TOKEN 환경변수로 담아
+ * GitHub Actions 워크플로우를 트리거하고, 워크플로우가 이 명령을 실행합니다.
+ */
+async function runCiRefresh(): Promise<void> {
+  const claimToken = process.env.REFRESH_CLAIM_TOKEN;
+  if (!claimToken) {
+    log.error("REFRESH_CLAIM_TOKEN 환경변수가 없습니다.");
+    log.detail("이 명령은 사람이 직접 쓰는 것이 아니라 24시간 자동 갱신이 GitHub Actions를 통해 부릅니다.");
+    log.detail("직접 갱신하려면 `npm run refresh` 를 쓰세요.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = await runAutoRefresh(claimToken);
+  if (!result.success) process.exitCode = 1;
+}
+
 function showHelp(): void {
   console.log(`
 수업자료 관리 도구 (class-material-manager)
@@ -1122,6 +1243,8 @@ function showHelp(): void {
   security-check 바깥에 내놔도 되는지 민감정보를 살펴봅니다
   backup         다시 만들기 비싼 데이터를 챙겨 둡니다
   restore        백업으로 되돌립니다
+  sync-supabase  data/*.json 을 Supabase 5개 테이블로 올리고 대조 검증합니다
+  ci-refresh     24시간 자동 갱신이 GitHub Actions에서 부르는 명령 (사람이 직접 쓸 일은 거의 없습니다)
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다
 
@@ -1194,6 +1317,16 @@ classify 옵션:
   --apply          실제로 과목별 폴더로 옮깁니다
   --all            확신도가 중간인 자료를 전부 보여줍니다
 
+sync-supabase 필요 환경변수:
+  NEXT_PUBLIC_SUPABASE_URL       viewer/.env.local 의 값과 같습니다
+  SUPABASE_SERVICE_ROLE_KEY      Supabase 대시보드 → Settings → API → service_role
+  예) node --env-file=.env.local --env-file=viewer/.env.local src/index.ts sync-supabase
+
+ci-refresh 필요 환경변수 (GitHub Actions 전용, .github/workflows/material-refresh.yml 참고):
+  REFRESH_CLAIM_TOKEN            Vercel이 claim에 성공했을 때 발급한 토큰
+  NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   sync-supabase 와 같습니다
+  Google 인증(credentials.json, data/token.json)도 워크플로우가 CI 환경에 미리 준비해 둡니다
+
 collect / collect-files 공통 옵션:
   --limit N        앞에서부터 N건만 처리합니다 (시험 실행용)
   --concurrency N  동시에 보낼 요청 수 (기본 4 / 파일은 3)
@@ -1251,6 +1384,12 @@ async function main(): Promise<void> {
       break;
     case "restore":
       await runRestore(process.argv.slice(3));
+      break;
+    case "sync-supabase":
+      await runSyncSupabase();
+      break;
+    case "ci-refresh":
+      await runCiRefresh();
       break;
     case "help":
     case "--help":
