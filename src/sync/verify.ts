@@ -70,10 +70,14 @@ export async function verifySupabase(): Promise<VerifyReport> {
   log.step("Supabase 에서 실제 저장된 행을 읽습니다");
   const [dbMaterials, dbRelations, dbLearning, dbComparisons, dbStudyGuides] = await Promise.all([
     selectRows<{ source_id: string }>(env, "material_metadata", "select=source_id"),
+    // id는 bigint 컬럼입니다. 캐스트 없이 select하면 PostgREST가 JSON 숫자로 돌려주는데,
+    // stableBigIntId()가 만드는 19자리 값은 JS의 안전 정수 범위(2^53)를 넘어 정밀도가
+    // 깨지고, 타입도 로컬에서 만든 문자열 id와 달라 Set 비교가 전부 실패합니다.
+    // ::text로 캐스트해 원래 값 그대로 문자열로 받습니다.
     selectRows<{ id: string; material_id: string; zip_id: string }>(
       env,
       "relations",
-      "select=id,material_id,zip_id",
+      "select=id::text,material_id,zip_id",
     ),
     selectRows<{ material_id: string }>(env, "learning_documents", "select=material_id"),
     selectRows<{ id: string; material_id: string | null }>(env, "comparisons", "select=id,material_id"),
