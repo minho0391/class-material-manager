@@ -33,7 +33,7 @@
  */
 import { refresh } from "./refresh-runner.ts";
 import { syncSupabase } from "../sync/sync-runner.ts";
-import { hasVerifyProblems, verifySupabase, type VerifyReport } from "../sync/verify.ts";
+import { printVerifyReport, summarizeVerifyProblems, verifySupabase, type VerifyReport } from "../sync/verify.ts";
 import { loadSupabaseEnv } from "../sync/env.ts";
 import { callRpc } from "../sync/postgrest-client.ts";
 import * as log from "../utils/logger.ts";
@@ -102,11 +102,14 @@ export async function runAutoRefresh(claimToken: string): Promise<AutoRefreshRes
 
     log.step("이관 결과를 검증합니다");
     const verify = await verifySupabase();
+    // sync-supabase CLI와 같은 형식으로 상세 내역(어떤 테이블의 어떤 ID가 문제인지)을
+    // CI 로그에 그대로 찍습니다 — "상세는 로그를 참고" 라고만 하고 정작 아무것도
+    // 안 찍히면 실패 원인을 다음에도 알 수 없습니다.
+    const hasProblem = printVerifyReport(verify);
 
-    if (hasVerifyProblems(verify)) {
-      const message = "이관 검증에서 누락·중복·FK 고아행을 찾았습니다 — 상세는 위 로그를 참고하세요";
-      log.error(message);
-      await reportResult(claimToken, false, message);
+    if (hasProblem) {
+      const message = summarizeVerifyProblems(verify);
+      await reportResult(claimToken, false, message.slice(0, 2000));
       return { success: false, message, verify };
     }
 

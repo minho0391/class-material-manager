@@ -49,7 +49,7 @@ import {
 } from "./backup/backup-runner.ts";
 import { PRIORITY_LABEL, PRIORITY_MEANING } from "./study/study-builder.ts";
 import { syncSupabase } from "./sync/sync-runner.ts";
-import { verifySupabase } from "./sync/verify.ts";
+import { printVerifyReport, verifySupabase } from "./sync/verify.ts";
 import { runAutoRefresh } from "./refresh/auto-refresh.ts";
 import * as log from "./utils/logger.ts";
 
@@ -1125,79 +1125,8 @@ async function runSyncSupabase(): Promise<void> {
 
   log.step("이관 결과를 원본 JSON과 대조합니다");
   const report = await verifySupabase();
-
-  let hasProblem = false;
-
-  const printSetDiff = (
-    label: string,
-    diff: { jsonCount: number; dbCount: number; missingInDb: string[]; extraInDb: string[] },
-    duplicatesInJson: string[],
-  ) => {
-    log.info(`\n${label}`);
-    log.detail(`  원본(JSON) ${diff.jsonCount}건 / DB ${diff.dbCount}건`);
-    if (diff.missingInDb.length > 0) {
-      hasProblem = true;
-      log.error(`  누락 ${diff.missingInDb.length}건: ${diff.missingInDb.slice(0, 10).join(", ")}`);
-    } else {
-      log.success("  누락 없음");
-    }
-    if (diff.extraInDb.length > 0) {
-      log.warn(`  DB에만 있는 행 ${diff.extraInDb.length}건 (다른 시험/이전 데이터일 수 있음)`);
-    }
-    if (duplicatesInJson.length > 0) {
-      hasProblem = true;
-      log.error(`  원본 JSON 중복 ID ${duplicatesInJson.length}건: ${duplicatesInJson.join(", ")}`);
-    } else {
-      log.success("  중복 없음");
-    }
-  };
-
-  printSetDiff("material_metadata", report.materialMetadata, report.materialMetadata.duplicatesInJson);
-
-  log.info("\nrelations");
-  log.detail(`  원본(JSON) ${report.relations.jsonCount}건 / DB ${report.relations.dbCount}건`);
-  if (report.relations.jsonCount !== report.relations.dbCount) {
-    hasProblem = true;
-    log.error("  건수가 다릅니다");
-  } else {
-    log.success("  건수 일치");
-  }
-  if (report.relations.orphanMaterialIds.length > 0 || report.relations.orphanZipIds.length > 0) {
-    hasProblem = true;
-    log.error(
-      `  FK 고아행 — material_id ${report.relations.orphanMaterialIds.length}건, zip_id ${report.relations.orphanZipIds.length}건`,
-    );
-  } else {
-    log.success("  FK 정상");
-  }
-
-  printSetDiff("learning_documents", report.learningDocuments, report.learningDocuments.duplicatesInJson);
-  if (report.learningDocuments.orphanMaterialIds.length > 0) {
-    hasProblem = true;
-    log.error(`  FK 고아행(material_id) ${report.learningDocuments.orphanMaterialIds.length}건`);
-  }
-
-  printSetDiff("comparisons", report.comparisons, report.comparisons.duplicatesInJson);
-  if (report.comparisons.orphanMaterialIds.length > 0) {
-    hasProblem = true;
-    log.error(`  FK 고아행(material_id) ${report.comparisons.orphanMaterialIds.length}건`);
-  }
-
-  printSetDiff("study_guides", report.studyGuides, report.studyGuides.duplicatesInJson);
-  if (report.studyGuides.orphanComparisonIds.length > 0 || report.studyGuides.orphanMaterialIds.length > 0) {
-    hasProblem = true;
-    log.error(
-      `  FK 고아행 — comparison_id ${report.studyGuides.orphanComparisonIds.length}건, material_id ${report.studyGuides.orphanMaterialIds.length}건`,
-    );
-  }
-
-  log.info("");
-  if (hasProblem) {
-    log.error("검증에서 문제를 찾았습니다. 위 내용을 확인하세요.");
-    process.exitCode = 1;
-  } else {
-    log.success("모든 테이블이 원본과 일치하고 FK 고아행이 없습니다.");
-  }
+  const hasProblem = printVerifyReport(report);
+  if (hasProblem) process.exitCode = 1;
 }
 
 /**

@@ -196,3 +196,119 @@ export function hasVerifyProblems(report: VerifyReport): boolean {
 
   return false;
 }
+
+/**
+ * 검증에서 찾은 문제를 한두 줄로 요약합니다. `release_refresh`의 `last_error`처럼
+ * 콘솔이 아니라 DB에 저장해 나중에 다시 읽을 짧은 텍스트가 필요한 곳에서 씁니다.
+ * 어떤 로그도 안 남기고 문자열만 돌려줍니다 — 실제 출력은 printVerifyReport 몫입니다.
+ */
+export function summarizeVerifyProblems(report: VerifyReport): string {
+  const parts: string[] = [];
+
+  const describe = (
+    label: string,
+    diff: { missingInDb: string[]; duplicatesInJson: string[] },
+  ) => {
+    if (diff.missingInDb.length > 0) parts.push(`${label} 누락 ${diff.missingInDb.length}건`);
+    if (diff.duplicatesInJson.length > 0) parts.push(`${label} 중복 ${diff.duplicatesInJson.length}건`);
+  };
+
+  describe("material_metadata", report.materialMetadata);
+  if (report.relations.jsonCount !== report.relations.dbCount) parts.push("relations 건수 불일치");
+  if (report.relations.missingRelationIds.length > 0) {
+    parts.push(`relations 누락 ${report.relations.missingRelationIds.length}건`);
+  }
+  if (report.relations.orphanMaterialIds.length > 0 || report.relations.orphanZipIds.length > 0) {
+    parts.push("relations FK 고아행");
+  }
+  describe("learning_documents", report.learningDocuments);
+  if (report.learningDocuments.orphanMaterialIds.length > 0) parts.push("learning_documents FK 고아행");
+  describe("comparisons", report.comparisons);
+  if (report.comparisons.orphanMaterialIds.length > 0) parts.push("comparisons FK 고아행");
+  describe("study_guides", report.studyGuides);
+  if (report.studyGuides.orphanComparisonIds.length > 0 || report.studyGuides.orphanMaterialIds.length > 0) {
+    parts.push("study_guides FK 고아행");
+  }
+
+  return parts.length > 0
+    ? `이관 검증 실패: ${parts.join(", ")} (전체 상세는 GitHub Actions 로그 참고)`
+    : "이관 검증 실패 (원인 미상 — printVerifyReport 로그 참고)";
+}
+
+/**
+ * 검증 결과를 사람이 읽을 수 있게 로그로 찍습니다. `sync-supabase` CLI(index.ts)와
+ * `ci-refresh`(auto-refresh.ts) 둘 다 이 함수를 씁니다 — 어디서 실행하든 똑같은 상세
+ * 내역(어떤 테이블의 어떤 ID가 문제인지)을 볼 수 있어야, CI 로그만 보고도 원인을
+ * 바로 알 수 있습니다.
+ *
+ * @returns hasVerifyProblems(report) 와 같은 값. 호출부는 이 값으로 성공/실패를 정합니다.
+ */
+export function printVerifyReport(report: VerifyReport): boolean {
+  const printSetDiff = (
+    label: string,
+    diff: { jsonCount: number; dbCount: number; missingInDb: string[]; extraInDb: string[] },
+    duplicatesInJson: string[],
+  ) => {
+    log.info(`\n${label}`);
+    log.detail(`  원본(JSON) ${diff.jsonCount}건 / DB ${diff.dbCount}건`);
+    if (diff.missingInDb.length > 0) {
+      log.error(`  누락 ${diff.missingInDb.length}건: ${diff.missingInDb.slice(0, 10).join(", ")}`);
+    } else {
+      log.success("  누락 없음");
+    }
+    if (diff.extraInDb.length > 0) {
+      log.warn(`  DB에만 있는 행 ${diff.extraInDb.length}건 (다른 시험/이전 데이터일 수 있음): ${diff.extraInDb.slice(0, 10).join(", ")}`);
+    }
+    if (duplicatesInJson.length > 0) {
+      log.error(`  원본 JSON 중복 ID ${duplicatesInJson.length}건: ${duplicatesInJson.join(", ")}`);
+    } else {
+      log.success("  중복 없음");
+    }
+  };
+
+  printSetDiff("material_metadata", report.materialMetadata, report.materialMetadata.duplicatesInJson);
+
+  log.info("\nrelations");
+  log.detail(`  원본(JSON) ${report.relations.jsonCount}건 / DB ${report.relations.dbCount}건`);
+  if (report.relations.jsonCount !== report.relations.dbCount) {
+    log.error("  건수가 다릅니다");
+  } else {
+    log.success("  건수 일치");
+  }
+  if (report.relations.missingRelationIds.length > 0) {
+    log.error(`  누락된 관계 ${report.relations.missingRelationIds.length}건: ${report.relations.missingRelationIds.slice(0, 10).join(", ")}`);
+  }
+  if (report.relations.orphanMaterialIds.length > 0 || report.relations.orphanZipIds.length > 0) {
+    log.error(
+      `  FK 고아행 — material_id ${report.relations.orphanMaterialIds.length}건, zip_id ${report.relations.orphanZipIds.length}건`,
+    );
+  } else {
+    log.success("  FK 정상");
+  }
+
+  printSetDiff("learning_documents", report.learningDocuments, report.learningDocuments.duplicatesInJson);
+  if (report.learningDocuments.orphanMaterialIds.length > 0) {
+    log.error(`  FK 고아행(material_id) ${report.learningDocuments.orphanMaterialIds.length}건`);
+  }
+
+  printSetDiff("comparisons", report.comparisons, report.comparisons.duplicatesInJson);
+  if (report.comparisons.orphanMaterialIds.length > 0) {
+    log.error(`  FK 고아행(material_id) ${report.comparisons.orphanMaterialIds.length}건`);
+  }
+
+  printSetDiff("study_guides", report.studyGuides, report.studyGuides.duplicatesInJson);
+  if (report.studyGuides.orphanComparisonIds.length > 0 || report.studyGuides.orphanMaterialIds.length > 0) {
+    log.error(
+      `  FK 고아행 — comparison_id ${report.studyGuides.orphanComparisonIds.length}건, material_id ${report.studyGuides.orphanMaterialIds.length}건`,
+    );
+  }
+
+  const hasProblem = hasVerifyProblems(report);
+  log.info("");
+  if (hasProblem) {
+    log.error("검증에서 문제를 찾았습니다. 위 내용을 확인하세요.");
+  } else {
+    log.success("모든 테이블이 원본과 일치하고 FK 고아행이 없습니다.");
+  }
+  return hasProblem;
+}
