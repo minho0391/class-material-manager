@@ -29,6 +29,7 @@ import {
   subjectLabel,
   type ComparisonItem,
 } from "@/lib/data";
+import { safeHref } from "@/lib/url";
 
 export const metadata = { title: "수업 방식 점검 · 수업자료 아카이브" };
 
@@ -93,6 +94,7 @@ function ItemCard({ item }: { item: ComparisonItem }) {
   // (design-mockups-v2 04번 — "사용 중단됨" 카드의 굵은 강조 테두리)
   const urgent = item.status === "DEPRECATED";
   const accentColor = `${COLOR[item.status] ?? "divider"}.main`;
+  const officialHref = item.official ? safeHref(item.official.sourceUrl) : undefined;
 
   return (
     <Paper
@@ -174,36 +176,44 @@ function ItemCard({ item }: { item: ComparisonItem }) {
 
       {/* ── 근거 ── */}
       <Box sx={{ mt: 1.5, pl: 1.5, borderLeft: "3px solid", borderColor: "divider" }}>
-        {item.evidence.map((ev, index) => (
-          <Box key={index} sx={{ mb: 0.8 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {ev.source}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ display: "block", fontFamily: "'D2Coding', monospace", wordBreak: "break-word" }}
-            >
-              {ev.text}
-            </Typography>
-            {ev.where && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                {ev.where.startsWith("http") ? (
-                  <Link href={ev.where} target="_blank" rel="noopener noreferrer">
-                    {ev.where}
-                  </Link>
-                ) : (
-                  ev.where
-                )}
+        {item.evidence.map((ev, index) => {
+          const whereHref = safeHref(ev.where);
+          return (
+            <Box key={index} sx={{ mb: 0.8 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                {ev.source}
               </Typography>
-            )}
-          </Box>
-        ))}
+              <Typography
+                variant="caption"
+                sx={{ display: "block", fontFamily: "'D2Coding', monospace", wordBreak: "break-word" }}
+              >
+                {ev.text}
+              </Typography>
+              {ev.where && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  {whereHref ? (
+                    <Link href={whereHref} target="_blank" rel="noopener noreferrer">
+                      {ev.where}
+                    </Link>
+                  ) : (
+                    ev.where
+                  )}
+                </Typography>
+              )}
+            </Box>
+          );
+        })}
       </Box>
 
       {/* ── 확인하러 가기 ── */}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1.5, alignItems: "center" }}>
-        {item.official && (
-          <Link href={item.official.sourceUrl} target="_blank" rel="noopener noreferrer" variant="caption">
+        {officialHref && (
+          <Link
+            href={officialHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="caption"
+          >
             🔗 공식 문서 원문
           </Link>
         )}

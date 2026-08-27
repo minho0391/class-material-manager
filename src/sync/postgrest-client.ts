@@ -27,10 +27,11 @@ export async function upsertRows<T extends object>(
   table: string,
   rows: T[],
   onConflict: string,
+  chunkSize: number = CHUNK_SIZE,
 ): Promise<void> {
   if (rows.length === 0) return;
 
-  for (const part of chunk(rows, CHUNK_SIZE)) {
+  for (const part of chunk(rows, chunkSize)) {
     const url = `${env.url}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`;
     const res = await fetch(url, {
       method: "POST",

@@ -13,6 +13,8 @@ import { loadStudyGuides } from "../store/study-store.ts";
 import { loadSupabaseEnv } from "./env.ts";
 import { selectRows } from "./postgrest-client.ts";
 import { buildRelationRows } from "./build-relations.ts";
+import { buildMaterialBodyRows } from "./build-material-bodies.ts";
+import { buildReferenceRows } from "./build-references.ts";
 import * as log from "../utils/logger.ts";
 
 interface SetDiff {
@@ -40,6 +42,8 @@ function findDuplicates(ids: string[]): string[] {
 
 export interface VerifyReport {
   materialMetadata: SetDiff & { duplicatesInJson: string[] };
+  materialBodies: SetDiff & { orphanSourceIds: string[] };
+  referenceDocuments: SetDiff;
   relations: {
     jsonCount: number;
     dbCount: number;
@@ -67,8 +71,12 @@ export async function verifySupabase(): Promise<VerifyReport> {
     loadStudyGuides(),
   ]);
 
+  const bodyRows = await buildMaterialBodyRows(index);
+  const referenceRows = await buildReferenceRows();
+
   log.step("Supabase 에서 실제 저장된 행을 읽습니다");
-  const [dbMaterials, dbRelations, dbLearning, dbComparisons, dbStudyGuides] = await Promise.all([
+  const [dbMaterials, dbRelations, dbLearning, dbComparisons, dbStudyGuides, dbBodies, dbReferences] =
+    await Promise.all([
     selectRows<{ source_id: string }>(env, "material_metadata", "select=source_id"),
     // id는 bigint 컬럼입니다. 캐스트 없이 select하면 PostgREST가 JSON 숫자로 돌려주는데,
     // stableBigIntId()가 만드는 19자리 값은 JS의 안전 정수 범위(2^53)를 넘어 정밀도가
@@ -86,6 +94,12 @@ export async function verifySupabase(): Promise<VerifyReport> {
       "study_guides",
       "select=comparison_id,material_id",
     ),
+    selectRows<{ source_id: string }>(env, "material_bodies", "select=source_id"),
+    selectRows<{ subject: string; slug: string }>(
+      env,
+      "reference_documents",
+      "select=subject,slug",
+    ),
   ]);
 
   const dbMaterialIds = new Set(dbMaterials.map((r) => r.source_id));
@@ -97,6 +111,19 @@ export async function verifySupabase(): Promise<VerifyReport> {
     ...materialDiff,
     duplicatesInJson: findDuplicates(Object.values(index.entries).map((e) => e.docId)),
   };
+
+  // ── material_bodies (텍스트 본문) ──
+  const jsonBodyIds = new Set(bodyRows.map((r) => r.source_id));
+  const dbBodyIds = new Set(dbBodies.map((r) => r.source_id));
+  const materialBodies = {
+    ...diffSets(jsonBodyIds, dbBodyIds),
+    orphanSourceIds: [...dbBodyIds].filter((id) => !dbMaterialIds.has(id)),
+  };
+
+  // ── reference_documents (공식 문서 발췌본) ──
+  const jsonReferenceIds = new Set(referenceRows.map((r) => `${r.subject}/${r.slug}`));
+  const dbReferenceIds = new Set(dbReferences.map((r) => `${r.subject}/${r.slug}`));
+  const referenceDocuments = diffSets(jsonReferenceIds, dbReferenceIds);
 
   // ── relations (자체 id 없음 — materialId+zipId 조합 기준으로 FK 고아만 검사) ──
   const relationRows = relations ? buildRelationRows(relations) : [];
@@ -163,6 +190,8 @@ export async function verifySupabase(): Promise<VerifyReport> {
 
   return {
     materialMetadata,
+    materialBodies,
+    referenceDocuments,
     relations: relationsReport,
     learningDocuments,
     comparisons: comparisonsReport,
@@ -180,6 +209,16 @@ export async function verifySupabase(): Promise<VerifyReport> {
 export function hasVerifyProblems(report: VerifyReport): boolean {
   if (report.materialMetadata.missingInDb.length > 0) return true;
   if (report.materialMetadata.duplicatesInJson.length > 0) return true;
+
+  if (report.materialBodies.missingInDb.length > 0) return true;
+  if (report.materialBodies.orphanSourceIds.length > 0) return true;
+  // material_bodies·reference_documents 는 순수 파생 캐시입니다 (다른 시험 데이터와 섞이지
+  // 않음). 뷰어가 이 테이블을 DB 우선으로 통째로 읽으므로, 원본 산출물에 없는 DB 행
+  // (소스가 지워졌는데 남은 stale row)은 잘못된 내용이 계속 노출된다는 뜻 — 실패로 봅니다.
+  if (report.materialBodies.extraInDb.length > 0) return true;
+
+  if (report.referenceDocuments.missingInDb.length > 0) return true;
+  if (report.referenceDocuments.extraInDb.length > 0) return true;
 
   if (report.relations.jsonCount !== report.relations.dbCount) return true;
   if (report.relations.missingRelationIds.length > 0) return true;
@@ -218,6 +257,19 @@ export function summarizeVerifyProblems(report: VerifyReport): string {
   };
 
   describe("material_metadata", report.materialMetadata);
+  if (report.materialBodies.missingInDb.length > 0) {
+    parts.push(`material_bodies 누락 ${report.materialBodies.missingInDb.length}건`);
+  }
+  if (report.materialBodies.extraInDb.length > 0) {
+    parts.push(`material_bodies stale 행 ${report.materialBodies.extraInDb.length}건`);
+  }
+  if (report.materialBodies.orphanSourceIds.length > 0) parts.push("material_bodies FK 고아행");
+  if (report.referenceDocuments.missingInDb.length > 0) {
+    parts.push(`reference_documents 누락 ${report.referenceDocuments.missingInDb.length}건`);
+  }
+  if (report.referenceDocuments.extraInDb.length > 0) {
+    parts.push(`reference_documents stale 행 ${report.referenceDocuments.extraInDb.length}건`);
+  }
   if (report.relations.jsonCount !== report.relations.dbCount) parts.push("relations 건수 불일치");
   if (report.relations.missingRelationIds.length > 0) {
     parts.push(`relations 누락 ${report.relations.missingRelationIds.length}건`);
@@ -271,6 +323,27 @@ export function printVerifyReport(report: VerifyReport): boolean {
   };
 
   printSetDiff("material_metadata", report.materialMetadata, report.materialMetadata.duplicatesInJson);
+
+  printSetDiff("material_bodies", report.materialBodies, []);
+  if (report.materialBodies.extraInDb.length > 0) {
+    log.error(
+      `  ↑ 이 stale 행은 정리해야 합니다 (파생 캐시라 원본에 없는 행 = 잘못된 내용 노출). ` +
+        `수동: delete from public.material_bodies where source_id in (...)`,
+    );
+  }
+  if (report.materialBodies.orphanSourceIds.length > 0) {
+    log.error(`  FK 고아행(source_id) ${report.materialBodies.orphanSourceIds.length}건`);
+  } else {
+    log.success("  FK 정상");
+  }
+
+  printSetDiff("reference_documents", report.referenceDocuments, []);
+  if (report.referenceDocuments.extraInDb.length > 0) {
+    log.error(
+      `  ↑ 이 stale 행은 정리해야 합니다. ` +
+        `수동: delete from public.reference_documents where (subject, slug) in (...)`,
+    );
+  }
 
   log.info("\nrelations");
   log.detail(`  원본(JSON) ${report.relations.jsonCount}건 / DB ${report.relations.dbCount}건`);

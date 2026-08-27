@@ -28,6 +28,7 @@ import { StudyCard } from "@/components/StudyCard";
 import { PracticeCode } from "@/components/PracticeCode";
 import { TableOfContents } from "@/components/TableOfContents";
 import { extractTopHeadings } from "@/lib/toc";
+import { safeHref } from "@/lib/url";
 import {
   COMPARISON_LABEL,
   SEVERITY_LABEL,
@@ -57,6 +58,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
   if (!found) notFound();
 
   const { material, body, bodyAvailable } = found;
+  const sourceHref = safeHref(material.sourceUrl);
   const related = await getRelatedReferences(material);
   // 아직 build-learning 을 돌리지 않았거나 실습 코드가 없으면 null 입니다.
   const learning = await getLearning(material.docId);
@@ -112,15 +114,17 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       </Typography>
 
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2, mb: 3 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          href={material.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          🔗 원본 열기
-        </Button>
+        {sourceHref && (
+          <Button
+            size="small"
+            variant="outlined"
+            href={sourceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🔗 원본 열기
+          </Button>
+        )}
         {material.downloadPath && (
           <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
             원본 파일: <code>{material.downloadPath}</code>
@@ -262,9 +266,13 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       <Divider sx={{ my: 4, maxWidth: "82ch" }} />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: "82ch" }}>
         이 화면은 읽기 전용입니다. 내용을 고치려면{" "}
-        <Link href={material.sourceUrl} target="_blank" rel="noopener noreferrer">
-          원본 문서
-        </Link>
+        {sourceHref ? (
+          <Link href={sourceHref} target="_blank" rel="noopener noreferrer">
+            원본 문서
+          </Link>
+        ) : (
+          "원본 문서"
+        )}
         에서 수정한 뒤 <code>node src/index.ts collect</code> 로 다시 받아오세요.
       </Typography>
       </Box>

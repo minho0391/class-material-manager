@@ -1104,24 +1104,28 @@ async function runCompare(args: string[]): Promise<void> {
 }
 
 /**
- * data/*.json 을 Supabase 5개 테이블(material_metadata·relations·learning_documents·
- * comparisons·study_guides)로 upsert하고, 곧바로 원본과 대조 검증합니다.
+ * data/ 산출물을 Supabase 7개 테이블(material_metadata·material_bodies·relations·
+ * learning_documents·comparisons·study_guides·reference_documents)로 upsert하고,
+ * 곧바로 원본과 대조 검증합니다.
  *
- * 강사 원본 자료 본문은 그대로 두고 index.json 의 메타데이터와 프로젝트가 재가공한
- * 데이터만 올립니다 (자세한 원칙은 PROJECT_CONTEXT.md 참고).
+ * 원본 파일(PDF/DOCX/ZIP)은 옮기지 않습니다. index.json 메타데이터, 프로젝트가 재가공한
+ * 데이터, 그리고 뷰어·검색에 필요한 텍스트 추출본(수업자료 본문·실습 코드·references)을
+ * 올립니다 (자세한 원칙은 PROJECT_CONTEXT.md "Supabase 데이터 저장 원칙" 참고).
  */
 async function runSyncSupabase(): Promise<void> {
   log.step("Supabase 로 이관합니다");
-  log.detail("강사 원본 자료 본문은 옮기지 않습니다 — 메타데이터·재가공 데이터만 upsert합니다");
+  log.detail("원본 파일(PDF/DOCX/ZIP)은 옮기지 않습니다 — 메타데이터·재가공 데이터·텍스트 추출본만 upsert합니다");
 
   const summary = await syncSupabase();
 
   log.info("");
-  log.detail(`material_metadata   ${summary.materialMetadata}건`);
-  log.detail(`relations           ${summary.relations}건`);
-  log.detail(`learning_documents  ${summary.learningDocuments}건`);
-  log.detail(`comparisons         ${summary.comparisons}건`);
-  log.detail(`study_guides        ${summary.studyGuides}건`);
+  log.detail(`material_metadata    ${summary.materialMetadata}건`);
+  log.detail(`material_bodies      ${summary.materialBodies}건`);
+  log.detail(`relations            ${summary.relations}건`);
+  log.detail(`learning_documents   ${summary.learningDocuments}건`);
+  log.detail(`comparisons          ${summary.comparisons}건`);
+  log.detail(`study_guides         ${summary.studyGuides}건`);
+  log.detail(`reference_documents  ${summary.referenceDocuments}건`);
 
   log.step("이관 결과를 원본 JSON과 대조합니다");
   const report = await verifySupabase();
@@ -1172,7 +1176,7 @@ function showHelp(): void {
   security-check 바깥에 내놔도 되는지 민감정보를 살펴봅니다
   backup         다시 만들기 비싼 데이터를 챙겨 둡니다
   restore        백업으로 되돌립니다
-  sync-supabase  data/*.json 을 Supabase 5개 테이블로 올리고 대조 검증합니다
+  sync-supabase  data/ 산출물을 Supabase 7개 테이블로 올리고 대조 검증합니다
   ci-refresh     24시간 자동 갱신이 GitHub Actions에서 부르는 명령 (사람이 직접 쓸 일은 거의 없습니다)
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다

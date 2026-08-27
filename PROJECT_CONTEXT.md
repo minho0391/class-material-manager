@@ -118,29 +118,42 @@
 
 ### Supabase 데이터 저장 원칙
 
-- 원본 수업자료 자체는 Supabase DB로 이전하지 않습니다.
-- 원본 수업자료 및 원본 실습자료는 현재의 원본 파일/자료 구조에 그대로 보존합니다.
-- Supabase에는 이 프로젝트에서 가공·생성한 데이터와 사용자별 동적 데이터를 저장하는 방향으로 설계합니다.
-- Supabase 저장 대상으로 고려하는 데이터는 다음과 같습니다.
-  - 자료 메타데이터
-  - 프로젝트에서 생성한 학습용 가공·정리 결과
+**저장 경계 (2026-08-27 정밀화)**
+
+- **원본 파일 자체는 Supabase(DB·Storage)에 저장하지 않습니다.** PDF·DOCX·ZIP 등
+  강사가 준 원본 수업자료·원본 실습자료 파일은 현재의 로컬 `data/materials/` 구조에
+  그대로 보존합니다 (약 368MB, 로컬 전용).
+- **뷰어 제공·검색·학습 기능에 필요한 텍스트 추출본과 가공 데이터는 필요한 범위에서
+  Supabase DB에 저장할 수 있습니다.** 여기에는 원본 파일에서 추출한 수업자료 텍스트
+  본문(Markdown), 실습 코드 텍스트, 공식 문서(references) 발췌본이 포함됩니다
+  (약 5.1MB 텍스트).
+- 원본 파일(바이너리)과 그로부터 추출·가공한 텍스트를 명확히 구분합니다 — 전자는
+  로컬 전용, 후자는 DB 저장 가능.
+- Supabase에는 이 프로젝트가 가공·생성한 데이터와 사용자별 동적 데이터를 저장합니다.
+- Supabase 저장 대상 데이터:
+  - 자료 메타데이터, 자료 텍스트 본문
+  - 프로젝트에서 생성한 학습용 가공·정리 결과 (통합 학습자료 — 실습 코드 텍스트 포함)
   - 수업 당시 기술/방식에 대한 현재 기준 점검 결과
   - 복습 우선순위 및 복습 상태
-  - 공식 문서 연결 정보
-  - 사용자별 학습 진도
-  - 사용자 메모
-  - 기타 사용자별 개인 학습 상태
-- 원본 자료와 프로젝트가 생성한 가공 데이터를 명확하게 분리합니다.
-- 웹은 필요에 따라 기존 원본 자료와 Supabase의 가공/사용자 데이터를 함께 사용하는 하이브리드 구조를 유지합니다.
-- 원본 파일을 Supabase Storage로 일괄 이전하는 것은 현재 결정사항이 아닙니다.
-- 아직 실제 Supabase DB 스키마가 확정되지 않은 부분은 임의로 확정하지 말고 향후 설계로 구분합니다.
+  - 공식 문서(references) 발췌본 및 연결 정보
+  - 사용자별 학습 진도·메모·기타 개인 학습 상태 (향후)
+- 웹은 구조화 데이터·본문을 Supabase에서 우선 읽고 없으면 로컬 파일로 폴백하는
+  하이브리드 구조를 유지합니다 (`viewer/lib/data.ts` `resolveSource`).
+- **Vercel 등 `data/`가 없는 배포 환경에서도 본문·실습 코드·references·검색이 정상
+  동작하는 것을 목표로 합니다.**
+- `data/references/` 등 `enrich`로 재생성 가능한 텍스트도, 배포 환경 동작을 위해 DB에
+  사본을 둘 수 있습니다 (원본 파일이 아니라 외부 문서 발췌이므로 "원본 미저장"에
+  저촉되지 않음).
+- 원본 파일을 Supabase Storage로 일괄 이전하는 것은 여전히 결정사항이 아닙니다.
+- 아직 확정되지 않은 스키마는 임의로 확정하지 말고 향후 설계로 구분합니다.
 
-**현재 구현 상태**: 위 저장 대상 목록 중 "자료 메타데이터·학습용 가공 결과·점검 결과·복습
-우선순위·공식 문서 연결 정보"는 아래 "Supabase DB 이관" 절의 5개 테이블로 실제 이관을
-완료했습니다. "사용자별 학습 진도·메모·복습 상태" 등 사용자별 동적 데이터는 여전히 **향후
-계획**입니다 — 이번 이관에는 `user_id`를 쓰는 테이블이나 RLS 정책이 포함되지 않았습니다.
-파이프라인 자체는 지금도 로컬 `data/` 파일에만 쓰고, Supabase 이관은 그 결과물을 별도
-CLI 명령(`sync-supabase`)으로 뒤이어 올리는 구조입니다 (파이프라인이 자동으로 올리지 않습니다).
+**현재 구현 상태**: 위 저장 대상 중 "자료 메타데이터·학습용 가공 결과·점검 결과·복습
+우선순위·공식 문서 연결 정보"는 아래 "Supabase DB 이관" 절의 5개 테이블로 이관
+완료(2026-08-26). "자료 텍스트 본문·실습 코드 텍스트·references 발췌본"은 아래 "텍스트
+본문·references 이관" 절의 방향으로 **로컬 구현·검증 진행 중이며, 원격 적용 전입니다.**
+"사용자별 학습 진도·메모·복습 상태" 등 사용자별 동적 데이터는 여전히 **향후 계획**입니다
+(`user_id` 테이블·RLS 정책 미포함). 파이프라인 자체는 지금도 로컬 `data/` 파일에만 쓰고,
+Supabase 반영은 그 결과물을 별도 CLI 명령(`sync-supabase`)으로 뒤이어 올리는 구조입니다.
 
 ### Supabase DB 이관 (완료, 2026-08-26)
 
@@ -159,10 +172,11 @@ CLI 명령(`sync-supabase`)으로 뒤이어 올리는 구조입니다 (파이프
 | `comparisons` | 수업 당시 방식 ↔ 공식 문서 점검 결과 (`comparisons.json`) | `id` (= comparisonId) | `material_id` → `material_metadata.source_id` (nullable, 대표 자료 1건) |
 | `study_guides` | 복습 우선순위·설명 (`study-guides.json`의 `guides[]`) | `comparison_id` | → `comparisons.id`, `material_id` → `material_metadata.source_id` |
 
-- **원본 본문 미저장 원칙 준수**: `material_metadata`는 `index.json`의 메타데이터만 담고
-  (`file_path`는 위치만, 본문 없음), `learning_documents`의 `source_files`는 실습 코드의
-  **경로·언어·고른 이유만** 담아 `practice[].sourceFiles[].code`(코드 원문)는 옮기지 않았습니다.
-  코드 본문은 지금도 뷰어가 로컬 `learning.json`에서 그대로 읽습니다.
+- **원본 파일 미저장 (당시 기준, 2026-08-26)**: 이 5개 테이블에는 텍스트 본문을 담지
+  않았습니다 — `material_metadata`는 메타데이터만(`file_path`는 위치만), `learning_documents`의
+  `source_files`는 실습 코드의 경로·언어·이유만 담고 `code`(원문)는 제외했습니다.
+  **2026-08-27 저장 경계 정밀화로 이 방향은 확장됩니다** — 아래 "텍스트 본문·references 이관"
+  절 참고. 원본 파일(PDF/DOCX/ZIP) 자체는 계속 로컬 전용입니다.
 - **M:N 관계는 jsonb로 보존**: `comparisons`·`study_guides`의 `material_id`는 단일 FK 컬럼이라
   대표 자료 1건만 가리키지만, 실제로는 자료 하나가 여러 수업자료·여러 실습zip에 걸칠 수 있어
   전체 목록(`lessons`/`taughtIn`/`usedIn`/`materials`/`practice` 등)을 각 테이블의 `details`
@@ -201,12 +215,64 @@ CLI 명령(`sync-supabase`)으로 뒤이어 올리는 구조입니다 (파이프
   `SUPABASE_SERVICE_ROLE_KEY`) — 이관과 검증을 한 번에 실행합니다. 재실행해도 upsert라
   안전하며, 앞으로 데이터가 바뀔 때마다 다시 실행해 동기화하는 용도로 재사용할 수 있습니다.
 
-**아직 하지 않은 것 (다음 구현 단계로 남김)**:
+**후속 (완료)**: 2026-08-27 뷰어가 이 5개 테이블의 **구조화 데이터**를 우선 읽도록 하이브리드
+읽기 경로를 추가했습니다 (commit `40707bd`, `viewer/lib/data.ts` `resolveSource` + `db.ts`/
+`db-map.ts`). 본문·실습 코드·references는 그 시점까지 로컬 파일 전용이었고, 아래 절에서
+DB로 확장합니다.
 
-- 뷰어가 이 5개 테이블을 읽도록 바꾸는 것 — 이번 작업 범위 밖입니다. 뷰어는 지금도 로컬
-  `data/` 파일만 읽습니다. 아래 "첫 접속 트리거 24시간 자동 갱신"도 이 원칙을 그대로
-  따릅니다 — 갱신 트리거·claim/lock·타임스탬프만 다루고, 화면이 읽는 데이터 소스 자체는
-  바꾸지 않았습니다.
+### 텍스트 본문·references 이관 (2026-08-27)
+
+**목적**: Vercel(rootDir=`viewer`, `../data/` 접근 불가)에서 `data/`가 전혀 없어도 자료 본문·
+실습 코드·공식 문서·본문 검색이 정상 동작하도록, 텍스트 추출본을 Supabase DB에 둡니다.
+"저장 경계 (2026-08-27 정밀화)"에 따른 것으로, 원본 파일(PDF/DOCX/ZIP, ~368MB)은 계속
+로컬 전용입니다. 이관 대상은 텍스트 ~5.1MB뿐입니다.
+
+**추가 스키마 (2개 테이블 — 기존 5개는 그대로)**
+
+| 테이블 | 역할 | PK | 크기 |
+|---|---|---|---|
+| `material_bodies` | 수업자료 텍스트 본문 (`data/materials/**/*.md`의 frontmatter 제외 본문) | `source_id` → `material_metadata.source_id` (ON DELETE CASCADE) | ~4.1MB / 393행 |
+| `reference_documents` | 공식 문서(references) 발췌본 (`data/references/**/*.md`, `INDEX.md` 제외) | `(subject, slug)` | ~0.42MB / 203행 |
+
+- `material_bodies`를 `material_metadata`와 **별도 테이블**로 둔 이유: 본문(4MB)은
+  `/m/[docId]` 상세에서만 필요하고, 홈·목록·과목 화면 쿼리가 본문을 끌고 오지 않도록.
+- `learning_documents`는 스키마 변경 없음 — `source_files`(jsonb)에 `code`(원문)를 다시
+  포함하도록 sync만 수정 (+161KB).
+- 두 테이블 모두 기존 5개와 동일 패턴: RLS 활성 + `authenticated` SELECT policy + GRANT.
+  `anon` 접근 불가. `service_role`만 쓰기(sync).
+
+**sync 파이프라인 (upsert만, DELETE 없음 — 재실행 안전)**
+
+- 신규 `src/sync/build-material-bodies.ts` — `index.json` entry마다 `.md` 읽고 frontmatter
+  분리, `content_hash`로 변경분만 upsert.
+- 신규 `src/sync/build-references.ts` — `data/references/**/*.md` walk, frontmatter 파싱
+  (**서버 사이드, 신뢰된 `data/`**), "이 주제를 다룬 수업자료" 섹션 파싱 → `related_materials`.
+- `src/sync/build-learning-documents.ts` — `source_files`에 `code` 복원.
+- `src/sync/sync-runner.ts`·`verify.ts` — 스텝·검증 2개씩 추가.
+
+**뷰어 (하이브리드 구조 유지 — 가산적)**
+
+- `resolveSource`·30초 캐시·DB/파일 폴백·`search()` 함수·`/m` `bodyAvailable` 분기 — 무변경.
+- `viewer/lib/db.ts`: `fetchMaterialBodyFromDb(sourceId)`(per-doc), `fetchReferencesFromDb()`.
+- `viewer/lib/data.ts`: `getMaterial`(본문 DB→파일 폴백), `readReferences`(DB→파일),
+  `readBodies`(검색 haystack를 DB에서 채움), `loadLearningFromDb`(코드 DB에서).
+- **URL scheme 가드**: `reference.source_url`·`evidence.where`를 `<a href>`에 넣기 전
+  허용 스킴(http/https/mailto)만 통과 — sync 저장 시(`src/sync/build-references.ts:sanitizeUrl`)
+  + 렌더 시(`viewer/lib/url.ts:safeHref`) 이중 검증. Markdown 본문 링크도 같은 정책의
+  `urlTransform`(`safeMarkdownUrl`)으로 좁힘(상대경로·#앵커는 허용). 그 외는 텍스트로만.
+
+**운영 주의**
+
+- sync 는 upsert 전용, DELETE 없음. 소스 `.md`/reference 가 지워지면 `material_bodies`/
+  `reference_documents` 에 stale row 가 남고 뷰어가 DB 우선이라 계속 노출됨. `verify.ts` 가
+  이 두 테이블의 stale row 를 **실패로 감지**(수동 `DELETE` 안내). 배포 전에 반드시
+  `sync-supabase` 가 verify green(EXIT 0)인지 확인.
+- **부분 백필 금지**: `material_metadata` 에 행이 있으면 뷰어는 DB 모드로 고정되고,
+  `material_bodies`/`reference_documents` 에 1건이라도 있으면 파일 보강 없이 그 부분 집합만
+  서빙함. 백필은 항상 `sync-supabase` 를 끝까지(verify green) 실행.
+
+**상태**: 로컬 구현·검증·Codex 리뷰까지 완료. **원격 Supabase migration 3개 적용과 백필은
+결과 재보고 후 사용자 승인 시 진행.**
 
 ### 첫 접속 트리거 24시간 주기 백그라운드 자동 갱신 (완료, 2026-08-26)
 

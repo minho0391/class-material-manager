@@ -74,27 +74,70 @@
 
 ## 다음 작업
 
-* [ ] **본문·실습 코드 원문·공식문서(references)의 DB/Storage 이관** — 현재 하이브리드에서
-  이것들은 로컬 파일 전용이라, `data/`가 없는 Vercel 배포에선 자료 본문·실습 코드·`/r`
-  화면·본문 검색이 비거나 degrade됨. 배포 뷰어 완전 동작에 필요. 진행 전 "원본 본문
-  미저장 원칙"(`PROJECT_CONTEXT.md`) 개정 여부를 사용자와 확정
+* [x] **본문·실습 코드 원문·references의 DB 이관 (방안 A)** — 로컬 구현·검증·Codex 리뷰·
+  **원격 적용·백필까지 완료** (2026-08-27). `PROJECT_CONTEXT.md` "저장 경계 정밀화" +
+  "텍스트 본문·references 이관" 절 참고.
+  * 신규: migration 3개(`20260827211600_create_material_bodies`·`20260827211700_create_reference_documents`·
+    `20260827213100_grant_service_role_core_tables`), `src/sync/build-material-bodies.ts`·
+    `build-references.ts`·`frontmatter.ts`, `viewer/lib/url.ts`. 수정: `viewer/lib/{data,db,db-map}.ts`,
+    `viewer/components/{Markdown,StudyCard}.tsx`, `viewer/app/{compare,m,r}` href 가드,
+    `src/sync/{sync-runner,verify,build-learning-documents,postgrest-client}.ts`, `src/index.ts`.
+  * Codex 리뷰 반영: `service_role` delete 권한 제거(least priv), `verify.ts`가
+    `material_bodies`/`reference_documents`의 stale row를 실패로 감지, `db.ts:selectAll`
+    range 페이지네이션, `Markdown.tsx` `safeMarkdownUrl` urlTransform.
+  * 원격 적용 전 정리: plan A로 `refresh` 실행 결과 comparisons/study_guides가 355건(원격
+    360과 5건 차이). 그 5건(`gap:align-items`·`gap:flex-direction`·`gap:grid-template-columns`·
+    `gap:grid-template-rows`·`gap:justify-content` + 대응 study_guides 5건)은 2026-08-26
+    ci-refresh 당시 references 문서 부재로 생긴 임시 lookup fallback이 정식 문서로 대체된
+    obsolete 행. 백업(`scratchpad/remote-stale-rows-backup-20260827.json`) 후 원격에서
+    삭제(FK CASCADE) → 원격·로컬 ID 집합 완전 일치(355/355) 확인.
+  * 원격 백필 결과: `material_metadata` 393 · `material_bodies` **393** · `relations` 62 ·
+    `learning_documents` 27(실습 코드 **109/109**) · `comparisons` 355 · `study_guides` 355 ·
+    `reference_documents` **203**. `sync-supabase` verify **green(EXIT 0)**, FK 고아행 0,
+    frontmatter 잔존 0, 잘못된 URL 스킴 0. DB public 테이블 ~7.2MB(무료 500MB의 1.4%).
+  * 원격 로그인 세션 smoke(`data/` 숨김 = 배포 시나리오): `/m` 본문·실습 코드 전문,
+    `/r` references, `/search` 본문·코드 검색, `/compare`·`/study` 전부 원격 DB로 정상 렌더.
 * [ ] **하루 첫 접속 자동 갱신 — 자격증명 등록 후 실동작 검증** — 트리거·claim/lock·24h
   주기는 commit 0f6aa39에서 구현·검증 완료. GitHub Actions/Vercel 자격증명 6개 등록은
   사용자 몫(`PROJECT_CONTEXT.md` "첫 접속 트리거" 절). 등록 후 GitHub Actions 실행까지
   end-to-end 확인 필요
-* [ ] **Vercel 배포 준비** — `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  없으면 조용히 파일 폴백 → `data/` 없는 배포에선 빈 화면. 배포 체크리스트에 환경변수 +
-  migration 적용 + smoke query 확인 포함
+* [ ] **Vercel 배포 준비** — Vercel 프로젝트 `minho-lee/class-material-manager`
+  (rootDir=`viewer`) 확인됨. **DB 측 준비 완료**: 원격 migration 7개 적용됨, `sync-supabase`
+  verify green, 7개 테이블 백필 완료. 남은 것: Vercel 환경변수
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` 등록(없으면 조용히 파일
+  폴백 → `data/` 없는 배포에선 빈 화면), 실제 배포, 배포본 `/m`·`/r`·검색 smoke.
 
 ## 나중에 / 미결 판단
 
+* [ ] **refresh 수집 소프트 실패 조사 (별도 진행)** — 2026-08-27 `refresh` 실행 시 Google
+  문서 18건 + 파일 42건이 재수집 실패(403/404 추정). 파이프라인은 기존 로컬 사본을 유지하고
+  넘어갔고(`index.json` 393 유지, `failed.json` 빈 상태, `collect-status` = SUCCESS),
+  이번 DB 이관·백필 유효성에는 영향 없음(references·비교 분석은 로컬 파일 기반, 전량 정상).
+  다만 ~60건의 원본이 Drive 최신본과 어긋날 수 있음. 원인(계정 재공유 필요/문서 삭제/토큰
+  스코프)은 이번 작업 범위 밖 — 별도로 재인증·재공유 점검 후 `refresh` 재실행.
+* [ ] **stale DB row 정리 수단** — sync는 upsert만 하고 DELETE가 없음(프로젝트 원칙).
+  소스 `.md`/reference가 삭제되면 `material_bodies`/`reference_documents`에 stale row가
+  남고, 뷰어가 DB 우선이라 계속 노출·검색됨. 현재는 `verify.ts`가 이 두 테이블의 stale
+  행을 **실패로 감지**(수동 `DELETE` 안내). 향후 `sync-supabase --prune` 같은 안전한
+  정리 명령 검토 (Codex Major 1·2 지적). 기존 5개 테이블도 같은 특성이나 warn만.
+* [ ] **검색 본문 fetch 최적화** — DB 모드에서 검색 haystack이 콜드 캐시(30초)마다
+  `material_bodies` 전량(~4MB)을 fetch. TTL 만료 직후 동시 요청은 중복 fetch. 사용자
+  방침대로 현행 유지, 실사용 성능 문제 확인 시 in-flight dedupe 또는 서버 사이드 검색으로
+  전환 (Codex Minor 2).
+* [ ] **로그인 직후 30초 빈 화면 가능성** — 첫 로그인 요청이 세션 쿠키 확정보다 앞서면
+  `resolveSource`가 "file"로 캐시됨 → `data/` 없는 배포에선 최대 30초 빈 콘텐츠 후 자동
+  복구. 실제 브라우저는 redirect가 쿠키를 실어 보내 거의 안 걸림. 재현 시 `resolveSource`
+  의 auth-실패와 미설정을 구분하도록 보완 검토.
+* [ ] **본문·코드 크기 상한, `material_metadata.extra` 미매핑 필드** — 현재 상한 없음
+  (최대 본문 236KB, 코드 8.5KB — 정상 범위). future `IndexEntry`에 대형 원문 필드가
+  추가되면 `extra`로 DB에 들어갈 수 있음(기존 sync 특성). 스키마 확장 시 재검토 (Codex Section C).
+* [~] **`study_guides.details.oldCode` 원칙 확인** — 코드 조각 DB 저장은 "저장 경계
+  정밀화(2026-08-27)"로 명시 허용됨 → 해소. (남은 판단: 조각이 아닌 전체 파일 저장도
+  `learning_documents.source_files[].code`로 이번에 포함됨 — 이것도 경계 안)
 * [ ] **하이드레이션 경고** — 모든 화면에 "A tree hydrated but some attributes … didn't match"
   1건. `git stash`로 원본 코드에서도 동일 재현 → 이번 작업 이전부터 존재. MUI
   `InitColorSchemeScript`(`attribute="class"`)가 하이드레이션 전 `<html>` class를 바꾸는데
   `suppressHydrationWarning`이 한 단계만 덮는 문제로 추정. 별도 조사
-* [ ] **`study_guides.details.oldCode` 원칙 확인** — 실제 코드 조각이 DB에 저장됨(commit
-  0f6aa39). "원본 본문 미저장 원칙"이 "전문만 금지"인지 "조각도 금지"인지 사용자 확정 필요
-  (Codex 지적)
 * [ ] favicon.ico 404 처리
 * [ ] 로그인 이후 실제 데이터 화면 성능 점검 (DB 읽기 경로 추가 후 재점검)
 * [ ] 프로덕션 빌드에서 최종 성능 점검

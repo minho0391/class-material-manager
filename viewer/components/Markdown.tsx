@@ -13,6 +13,7 @@ import remarkGfm from "remark-gfm";
 import Box from "@mui/material/Box";
 
 import { createHeadingIdAssigner } from "@/lib/toc";
+import { safeMarkdownUrl } from "@/lib/url";
 
 /** 제목 자식(문자열·강조 등이 섞인 React 트리)을 순수 텍스트로 풀어냅니다. */
 function flattenText(node: React.ReactNode): string {
@@ -126,6 +127,7 @@ export function Markdown({ children }: { children: string }) {
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={safeMarkdownUrl}
         components={{
           h1: ({ children }) => (
             <Box id={assignId(flattenText(children))} component={DEMOTED_HEADINGS.h1}>

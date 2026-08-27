@@ -32,21 +32,31 @@ import {
   COMPARISON_COLUMNS,
   LEARNING_DOC_COLUMNS,
   MATERIAL_COLUMNS,
+  REFERENCE_COLUMNS,
   STUDY_GUIDE_COLUMNS,
   STUDY_MATERIAL_COLUMNS,
   latestStamp,
   toComparison,
   toLearningDocument,
   toMaterial,
+  toReference,
   toStudyGuide,
   toStudyMaterials,
   type ComparisonRow,
   type LearningDocRow,
   type MaterialRow,
+  type ReferenceRow,
   type StudyGuideRow,
   type StudyMaterialRow,
 } from "./db-map";
-import type { ComparisonItem, LearningDocument, Material, StudyGuide, StudyMaterial } from "./data";
+import type {
+  ComparisonItem,
+  LearningDocument,
+  Material,
+  Reference,
+  StudyGuide,
+  StudyMaterial,
+} from "./data";
 
 /** Supabase 접속에 필요한 공개 환경변수가 있는지. 없으면 DB 경로를 시도조차 하지 않습니다. */
 export function dbConfigured(): boolean {
@@ -55,14 +65,25 @@ export function dbConfigured(): boolean {
   );
 }
 
-/** select 한 번. error 가 있으면 던집니다 (부르는 쪽이 파일로 폴백). */
+/**
+ * 테이블 전체를 읽습니다. Supabase Data API 는 한 번에 최대 1000행만 주므로 range 로
+ * 이어 읽습니다 (현재 데이터는 1000행 미만이지만, references/comparisons 가 늘어도
+ * 뒷부분이 조용히 잘리지 않도록). error 가 있으면 던집니다 (부르는 쪽이 파일로 폴백).
+ */
 async function selectAll<Row>(table: string, columns: string): Promise<Row[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from(table).select(columns);
-  if (error) {
-    throw new Error(`Supabase select 실패 (${table}): ${error.message}`);
+  const rows: Row[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select(columns).range(from, from + PAGE - 1);
+    if (error) {
+      throw new Error(`Supabase select 실패 (${table}): ${error.message}`);
+    }
+    const page = (data ?? []) as Row[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
   }
-  return (data ?? []) as Row[];
+  return rows;
 }
 
 export async function fetchMaterialsFromDb(): Promise<Material[]> {
@@ -94,4 +115,35 @@ export async function fetchStudyGuidesFromDb(): Promise<{
 export async function fetchLearningDocsFromDb(): Promise<LearningDocument[]> {
   const rows = await selectAll<LearningDocRow>("learning_documents", LEARNING_DOC_COLUMNS);
   return rows.map(toLearningDocument);
+}
+
+export async function fetchReferencesFromDb(): Promise<Reference[]> {
+  const rows = await selectAll<ReferenceRow>("reference_documents", REFERENCE_COLUMNS);
+  return rows.map(toReference);
+}
+
+/**
+ * 자료 한 건의 텍스트 본문. 자료 상세(/m/[docId])에서만 부릅니다 — 목록·홈은 본문을
+ * 끌고 오지 않습니다. 행이 없으면 null (뷰어가 로컬 파일 폴백 또는 메타데이터 화면).
+ */
+export async function fetchMaterialBodyFromDb(sourceId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("material_bodies")
+    .select("body")
+    .eq("source_id", sourceId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Supabase select 실패 (material_bodies): ${error.message}`);
+  }
+  return (data as { body: string } | null)?.body ?? null;
+}
+
+/**
+ * 검색 haystack 용 — 모든 자료 본문을 한 번에 (source_id, body). 콜드 캐시마다 ~4MB.
+ * 성능 문제가 확인되면 서버 사이드 검색으로 옮기는 것은 이후 별도 최적화.
+ */
+export async function fetchAllMaterialBodiesFromDb(): Promise<Array<{ sourceId: string; body: string }>> {
+  const rows = await selectAll<{ source_id: string; body: string }>("material_bodies", "source_id,body");
+  return rows.map((r) => ({ sourceId: r.source_id, body: r.body }));
 }

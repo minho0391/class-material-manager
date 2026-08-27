@@ -1,5 +1,16 @@
 # Supabase 저장 대상 분석 및 DB 스키마 설계안 (v1, 설계 단계)
 
+> **⚠️ 이 문서는 폐기된 초기 설계안입니다 (2026-08-25 작성).**
+> 실제 적용된 스키마는 이 문서의 테이블명(`materials`/`study_priorities`/`comparison_topics`/
+> `user_material_state`)과 다르며, **`PROJECT_CONTEXT.md`의 "Supabase DB 이관"·"텍스트 본문·
+> references 이관" 절이 유일한 최신 기준**입니다.
+>
+> 특히 아래 2·3·7절이 "본문·실습 코드·references는 원본 성격이라 DB 미저장"으로 분류한
+> 부분은 **2026-08-27 저장 경계 정밀화로 무효**입니다 — 원본 *파일*(PDF/DOCX/ZIP)만
+> 로컬 전용이고, 텍스트 추출본은 DB에 저장합니다(`material_bodies`·`reference_documents`
+> 테이블, `learning_documents.source_files[].code`). 자세한 내용과 이유는 `PROJECT_CONTEXT.md`
+> "Supabase 데이터 저장 원칙" 참고.
+
 이 문서는 **설계안입니다. 실제 Supabase 프로젝트에는 아무것도 적용되지 않았습니다.**
 SQL 실행, 테이블 생성, migration, RLS 적용은 이번 작업 범위에 포함되지 않습니다.
 

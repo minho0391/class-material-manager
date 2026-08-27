@@ -13,6 +13,7 @@ import type {
   LearningDocument,
   LearningPractice,
   Material,
+  Reference,
   StudyGuide,
   StudyMaterial,
 } from "./data";
@@ -241,6 +242,7 @@ interface SourceFileBlob {
   path: string;
   language: string;
   reason: string;
+  code?: string;
 }
 export interface LearningDocRow {
   material_id: string;
@@ -274,7 +276,9 @@ export function toLearningDocument(row: LearningDocRow): LearningDocument {
       path: file.path,
       language: file.language,
       reason: file.reason,
-      code: "", // 로컬 learning.json 이 있으면 data.ts 가 덮어씁니다.
+      // sync 가 code 를 채웁니다. 아직 백필 전이면 "" 이고, 로컬 learning.json 이 있으면
+      // data.ts:loadLearningFromDb 가 덮어씁니다 (전환기 폴백).
+      code: file.code ?? "",
     })),
   }));
 
@@ -287,5 +291,43 @@ export function toLearningDocument(row: LearningDocRow): LearningDocument {
     sourceUrl: asStr(content.sourceUrl) ?? "",
     practice,
     references: asArray<LearningDocument["references"][number]>(row.official_docs),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// reference_documents → Reference
+//
+// 공식 문서(references) 발췌본. frontmatter 는 sync 에서 이미 파싱해 컬럼으로 저장돼
+// 있으므로 여기서는 YAML/gray-matter 를 실행하지 않습니다.
+// ═══════════════════════════════════════════════════════════
+
+export const REFERENCE_COLUMNS =
+  "subject,slug,title,source_url,source_name,language,fetched_at,mentions,related_materials,body";
+
+export interface ReferenceRow {
+  subject: string;
+  slug: string;
+  title: string;
+  source_url: string | null;
+  source_name: string | null;
+  language: string;
+  fetched_at: string | null;
+  mentions: number | null;
+  related_materials: unknown;
+  body: string;
+}
+
+export function toReference(row: ReferenceRow): Reference {
+  return {
+    subject: row.subject,
+    slug: row.slug,
+    title: row.title,
+    sourceUrl: row.source_url ?? "",
+    sourceName: row.source_name ?? "",
+    language: row.language ?? "en",
+    fetchedAt: row.fetched_at ?? "",
+    mentions: row.mentions ?? 0,
+    relatedMaterials: asArray<string>(row.related_materials),
+    body: row.body,
   };
 }

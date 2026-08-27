@@ -15,6 +15,7 @@ import Typography from "@mui/material/Typography";
 import { Markdown } from "@/components/Markdown";
 import { NavChip } from "@/components/nav";
 import { getReference, subjectLabel } from "@/lib/data";
+import { safeHref } from "@/lib/url";
 
 export default async function ReferencePage({
   params,
@@ -25,6 +26,8 @@ export default async function ReferencePage({
   const reference = await getReference(decodeURIComponent(rawSubject), decodeURIComponent(rawSlug));
 
   if (!reference) notFound();
+
+  const sourceHref = safeHref(reference.sourceUrl);
 
   return (
     <Box>
@@ -49,15 +52,17 @@ export default async function ReferencePage({
       </Box>
 
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mb: 3 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          href={reference.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          🔗 공식 문서 원문
-        </Button>
+        {sourceHref && (
+          <Button
+            size="small"
+            variant="outlined"
+            href={sourceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🔗 공식 문서 원문
+          </Button>
+        )}
         <Typography variant="caption" color="text.secondary">
           {reference.fetchedAt} 기준 · 원문의 핵심만 옮겨 적었습니다
         </Typography>

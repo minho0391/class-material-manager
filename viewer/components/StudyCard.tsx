@@ -26,6 +26,7 @@ import {
   subjectLabel,
   type StudyGuide,
 } from "@/lib/data";
+import { safeHref } from "@/lib/url";
 
 const CODE_FONT = { fontFamily: "'D2Coding', monospace" as const };
 
@@ -188,27 +189,30 @@ export function StudyCard({ guide, showSubject = true }: { guide: StudyGuide; sh
         <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>
           직접 확인할 근거
         </Typography>
-        {guide.evidence.map((entry, index) => (
-          <Box key={index} sx={{ mb: 0.8 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {entry.source}
-            </Typography>
-            <Typography variant="caption" sx={{ display: "block", ...CODE_FONT, wordBreak: "break-word" }}>
-              {entry.text}
-            </Typography>
-            {entry.where && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                {entry.where.startsWith("http") ? (
-                  <Link href={entry.where} target="_blank" rel="noopener noreferrer">
-                    {entry.where}
-                  </Link>
-                ) : (
-                  entry.where
-                )}
+        {guide.evidence.map((entry, index) => {
+          const whereHref = safeHref(entry.where);
+          return (
+            <Box key={index} sx={{ mb: 0.8 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                {entry.source}
               </Typography>
-            )}
-          </Box>
-        ))}
+              <Typography variant="caption" sx={{ display: "block", ...CODE_FONT, wordBreak: "break-word" }}>
+                {entry.text}
+              </Typography>
+              {entry.where && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  {whereHref ? (
+                    <Link href={whereHref} target="_blank" rel="noopener noreferrer">
+                      {entry.where}
+                    </Link>
+                  ) : (
+                    entry.where
+                  )}
+                </Typography>
+              )}
+            </Box>
+          );
+        })}
       </Box>
     </Paper>
   );

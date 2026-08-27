@@ -1,10 +1,9 @@
 /**
  * learning.json → learning_documents 행 변환.
  *
- * 중요: practice[].sourceFiles[].code (강사 실습 코드 원문) 은 DB로 옮기지 않습니다.
- * "강사 원본 자료는 Supabase에 저장하지 않는다"는 프로젝트 원칙에 따라
- * 경로(path)·언어(language)·고른 이유(reason)만 남깁니다. 코드 본문은 뷰어가
- * 지금처럼 로컬 learning.json 파일에서 그대로 읽습니다.
+ * 2026-08-27 저장 경계 정밀화: 실습 코드 **텍스트**(practice[].sourceFiles[].code)는
+ * 뷰어 학습 화면과 검색에 필요하므로 `source_files` 에 함께 담습니다. 원본 파일 자체
+ * (ZIP)는 여전히 로컬 전용입니다. (PROJECT_CONTEXT.md "텍스트 본문·references 이관" 참고)
  */
 import type { LearningData } from "../store/learning-store.ts";
 
@@ -36,6 +35,7 @@ export function buildLearningDocumentRows(data: LearningData): LearningDocumentR
         path: sourceFile.path,
         language: sourceFile.language,
         reason: sourceFile.reason,
+        code: sourceFile.code,
       })),
     );
 

@@ -20,9 +20,12 @@ import matter from "gray-matter";
 
 import {
   dbConfigured,
+  fetchAllMaterialBodiesFromDb,
   fetchComparisonsFromDb,
   fetchLearningDocsFromDb,
+  fetchMaterialBodyFromDb,
   fetchMaterialsFromDb,
+  fetchReferencesFromDb,
   fetchStudyGuidesFromDb,
   fetchStudyMaterialsFromDb,
 } from "./db";
@@ -209,8 +212,18 @@ async function resolveSource(): Promise<ResolvedSource> {
   return resolvedSource;
 }
 
-/** 참고자료(공식 문서 요약)를 전부 읽습니다. */
+/** 참고자료(공식 문서 요약)를 전부 읽습니다. DB 우선, 없으면 로컬 파일. */
 async function readReferences(): Promise<Reference[]> {
+  if ((await resolveSource()).source === "db") {
+    try {
+      const fromDb = await fetchReferencesFromDb();
+      if (fromDb.length > 0) return fromDb;
+      // DB 에 references 가 아직 없으면(백필 전) 아래 파일 경로로.
+    } catch {
+      // DB 조회 실패 → 아래 파일 경로로 폴백.
+    }
+  }
+
   const references: Reference[] = [];
   const referencesDir = join(DATA_DIR, "references");
 
@@ -266,10 +279,11 @@ async function readReferences(): Promise<Reference[]> {
   return references;
 }
 
-/** 검색에 쓸 본문을 전부 읽어 담습니다. */
-async function readBodies(materials: Material[], references: Reference[]): Promise<Map<string, string>> {
-  const bodies = new Map<string, string>();
-
+/** 자료 본문을 로컬 파일에서 읽어 검색 haystack 에 담습니다. */
+async function fillBodiesFromFiles(
+  materials: Material[],
+  bodies: Map<string, string>,
+): Promise<void> {
   for (const material of materials) {
     const full = safeDataPath(material.filePath);
     if (!full) continue;
@@ -279,6 +293,29 @@ async function readBodies(materials: Material[], references: Reference[]): Promi
     } catch {
       // 파일이 없으면 검색에서만 빠집니다.
     }
+  }
+}
+
+/**
+ * 검색에 쓸 본문을 전부 담습니다. 검색 함수(`search`)는 그대로이고, 이 Map 의 출처만
+ * DB(모드) 또는 로컬 파일입니다. references 본문은 이미 읽어 둔 `references` 인자에서 옵니다.
+ */
+async function readBodies(materials: Material[], references: Reference[]): Promise<Map<string, string>> {
+  const bodies = new Map<string, string>();
+
+  if ((await resolveSource()).source === "db") {
+    try {
+      const dbBodies = await fetchAllMaterialBodiesFromDb();
+      if (dbBodies.length > 0) {
+        for (const { sourceId, body } of dbBodies) bodies.set(sourceId, body.toLowerCase());
+      } else {
+        await fillBodiesFromFiles(materials, bodies); // 백필 전 — 로컬에서
+      }
+    } catch {
+      await fillBodiesFromFiles(materials, bodies); // DB 조회 실패 — 로컬에서
+    }
+  } else {
+    await fillBodiesFromFiles(materials, bodies);
   }
 
   for (const reference of references) {
@@ -417,7 +454,8 @@ export async function getMaterialsBySubject(subject: string): Promise<Material[]
  * 자료 하나와 그 본문을 가져옵니다.
  *
  * 주소로 들어온 docId 가 카탈로그에 없으면 null 을 돌려줍니다.
- * 파일 경로를 직접 만들지 않으므로 엉뚱한 파일이 열릴 수 없습니다.
+ * 본문은 DB(material_bodies) 우선, 없으면 로컬 파일, 그것도 없으면 메타데이터만.
+ * 어느 경우든 파일 경로를 주소값으로 만들지 않으므로 엉뚱한 파일이 열릴 수 없습니다.
  */
 export async function getMaterial(
   docId: string,
@@ -426,6 +464,16 @@ export async function getMaterial(
   const material = materials.find((m) => m.docId === docId);
   // 카탈로그에 없는 ID 는 없는 것으로 처리합니다 (경로 안전).
   if (!material) return null;
+
+  // DB 모드면 본문을 material_bodies 에서 먼저 시도합니다.
+  if ((await resolveSource()).source === "db") {
+    try {
+      const body = await fetchMaterialBodyFromDb(material.docId);
+      if (body !== null) return { material, body, bodyAvailable: true };
+    } catch {
+      // DB 본문 조회 실패 → 아래 로컬 파일 폴백.
+    }
+  }
 
   const full = safeDataPath(material.filePath);
   if (full) {
@@ -664,9 +712,9 @@ let learningDbCache: (LearningCache & { srcAt: number }) | null = null;
 /**
  * DB 의 learning_documents 로 통합 학습자료를 만듭니다.
  *
- * 코드 원문(sourceFiles[].code)은 DB 에 없습니다. 로컬 learning.json 이 있으면 그걸로
- * 채우고(하이브리드), 없으면(배포 환경) "" 로 둡니다 — 경로·언어·고른 이유는 그대로
- * 보이고, 코드 블록만 비게 됩니다.
+ * 코드 원문(sourceFiles[].code)은 sync 가 DB 에 채웁니다. 아직 백필 전이면 "" 이므로,
+ * 로컬 learning.json 이 있으면 그걸로 덮어씁니다(전환기 폴백). 배포 환경에서 백필 후에는
+ * DB 값만으로 코드 블록이 채워집니다.
  *
  * DB 조회 자체가 실패하면 null 을 돌려주고, 부르는 쪽이 파일 경로로 폴백합니다.
  */
@@ -697,7 +745,7 @@ async function loadLearningFromDb(): Promise<LearningCache | null> {
       for (const practice of doc.practice) {
         for (const file of practice.sourceFiles) {
           file.code =
-            codeByKey.get(`${doc.materialId} ${practice.zipId} ${file.path}`) ?? "";
+            codeByKey.get(`${doc.materialId} ${practice.zipId} ${file.path}`) ?? file.code;
         }
       }
     }
