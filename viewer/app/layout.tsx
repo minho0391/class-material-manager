@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   description: "오르미 프론트엔드 13기 수업자료와 공식 문서 요약을 모아 읽는 곳",
 };
 
+// 이 레이아웃은 모든 화면에서 과목·통계를 Supabase(로그인 세션 쿠키)에서 읽습니다.
+// 그래서 모든 화면을 요청 시점에 렌더링합니다 — /login 포함. (자동 갱신 뒤 다음
+// 요청부터 새 데이터가 반영되고, 빌드타임에 로컬 data/ 스냅샷이 구워지지 않습니다.)
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [subjects, stats] = await Promise.all([getSubjects(), getStats()]);
 

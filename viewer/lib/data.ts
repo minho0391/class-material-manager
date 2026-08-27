@@ -15,11 +15,38 @@
  * 목록에 없는 ID 는 파일을 열어보지도 않고 없는 것으로 처리합니다.
  */
 import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import matter from "gray-matter";
+
+import {
+  dbConfigured,
+  fetchComparisonsFromDb,
+  fetchLearningDocsFromDb,
+  fetchMaterialsFromDb,
+  fetchStudyGuidesFromDb,
+  fetchStudyMaterialsFromDb,
+} from "./db";
 
 /** 프로젝트의 data 폴더. viewer 폴더 기준으로 한 단계 위입니다. */
 const DATA_DIR = join(process.cwd(), "..", "data");
+
+/**
+ * data/ 안으로 정규화되는 경로만 돌려줍니다. 벗어나면 null.
+ *
+ * 예전에는 filePath 가 로컬 index.json(뷰어와 같은 디스크)에서만 왔기에 그 자체가
+ * 신뢰 경계였습니다. 이제는 Supabase 의 material_metadata.file_path 도 쓰므로, 원격에서
+ * 넘어온 값이 `../` 같은 것을 담아 data/ 밖 파일(.env.local 등)을 열지 못하도록
+ * 실제로 확인합니다. 주소창 값(docId)은 여전히 카탈로그와 대조 후에만 씁니다.
+ */
+function safeDataPath(filePath: string | undefined | null): string | null {
+  if (!filePath) return null;
+  const full = resolve(DATA_DIR, filePath);
+  const rel = relative(DATA_DIR, full);
+  if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    return null;
+  }
+  return full;
+}
 
 /** 카탈로그(index.json)에 들어 있는 자료 하나 */
 export interface Material {
@@ -135,6 +162,53 @@ async function readIndexFile(): Promise<{
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// 데이터 출처 결정 — DB 우선, 안 되면 파일
+//
+// 구조화 데이터(자료 목록·비교·복습·학습자료 메타)는 Supabase 에서 읽고, 읽지 못하면
+// 지금까지처럼 로컬 data/ 파일에서 읽습니다. 어느 쪽을 쓸지는 material_metadata 를
+// 실제로 읽어 보고 한 번에 정합니다 — 그래야 4개 데이터셋이 서로 다른 세대(sync 도중)
+// 가 되지 않고, 로컬(빈 스택)·미동기화·오류가 모두 "파일" 로 일관되게 떨어집니다.
+//
+// 30초 캐시: 자동 갱신 주기가 24시간이라 이 정도 지연은 "갱신 후 다음 요청부터 새
+// 데이터" 요건에 영향이 없고, 매 요청 DB 왕복을 막습니다.
+// ─────────────────────────────────────────────────────────────
+
+interface ResolvedSource {
+  source: "db" | "file";
+  /** DB 를 쓸 때 이미 읽어 둔 자료 목록 (loadAll 이 다시 읽지 않도록) */
+  dbMaterials: Material[] | null;
+  at: number;
+}
+
+let resolvedSource: ResolvedSource | null = null;
+const SOURCE_TTL_MS = 30_000;
+
+async function resolveSource(): Promise<ResolvedSource> {
+  if (resolvedSource && Date.now() - resolvedSource.at < SOURCE_TTL_MS) {
+    return resolvedSource;
+  }
+
+  let dbMaterials: Material[] | null = null;
+  if (dbConfigured()) {
+    try {
+      dbMaterials = await fetchMaterialsFromDb();
+    } catch (error) {
+      // 로그인 안 된 요청·네트워크·권한 등. 조용히 파일로 폴백합니다.
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[data] Supabase 읽기 실패, 로컬 파일로 폴백:", (error as Error).message);
+      }
+      dbMaterials = null;
+    }
+  }
+
+  // 행이 1건 이상 있을 때만 DB 를 씁니다. 0건은 "아직 sync 안 함" 으로 보고 파일로 갑니다
+  // (sync 는 upsert 만 하고 DELETE 가 없어, 0건이 "비운 것" 을 뜻하지 않습니다).
+  const source: "db" | "file" = dbMaterials && dbMaterials.length > 0 ? "db" : "file";
+  resolvedSource = { source, dbMaterials, at: Date.now() };
+  return resolvedSource;
+}
+
 /** 참고자료(공식 문서 요약)를 전부 읽습니다. */
 async function readReferences(): Promise<Reference[]> {
   const references: Reference[] = [];
@@ -197,9 +271,10 @@ async function readBodies(materials: Material[], references: Reference[]): Promi
   const bodies = new Map<string, string>();
 
   for (const material of materials) {
-    if (!material.filePath) continue;
+    const full = safeDataPath(material.filePath);
+    if (!full) continue;
     try {
-      const raw = await readFile(join(DATA_DIR, material.filePath), "utf8");
+      const raw = await readFile(full, "utf8");
       bodies.set(material.docId, raw.toLowerCase());
     } catch {
       // 파일이 없으면 검색에서만 빠집니다.
@@ -220,6 +295,21 @@ async function readBodies(materials: Material[], references: Reference[]): Promi
  * 브라우저를 새로고침하는 것만으로 최신 내용이 반영됩니다.
  */
 export async function loadAll(): Promise<Cache> {
+  const resolved = await resolveSource();
+
+  // ── DB 경로 ── 자료 메타데이터는 Supabase 에서, 본문·공식문서는 로컬 파일에서.
+  if (resolved.source === "db" && resolved.dbMaterials) {
+    const stamp = `db:${resolved.at}`;
+    if (cache && cache.stamp === stamp) return cache;
+
+    const references = await readReferences();
+    const bodies = await readBodies(resolved.dbMaterials, references);
+
+    cache = { stamp, materials: resolved.dbMaterials, references, bodies };
+    return cache;
+  }
+
+  // ── 파일 경로 ── DB 미설정·오류·아직 sync 안 함.
   const { stamp, materials, problem } = await readIndexFile();
 
   // 자료를 읽지 못했으면 캐시에 담지 않습니다.
@@ -331,18 +421,25 @@ export async function getMaterialsBySubject(subject: string): Promise<Material[]
  */
 export async function getMaterial(
   docId: string,
-): Promise<{ material: Material; body: string } | null> {
+): Promise<{ material: Material; body: string; bodyAvailable: boolean } | null> {
   const { materials } = await loadAll();
   const material = materials.find((m) => m.docId === docId);
-  if (!material?.filePath) return null;
+  // 카탈로그에 없는 ID 는 없는 것으로 처리합니다 (경로 안전).
+  if (!material) return null;
 
-  try {
-    const raw = await readFile(join(DATA_DIR, material.filePath), "utf8");
-    const { content } = matter(raw);
-    return { material, body: content };
-  } catch {
-    return null;
+  const full = safeDataPath(material.filePath);
+  if (full) {
+    try {
+      const raw = await readFile(full, "utf8");
+      const { content } = matter(raw);
+      return { material, body: content, bodyAvailable: true };
+    } catch {
+      // 본문 파일이 없습니다. 배포 환경엔 로컬 data/ 가 없으므로 정상적인 상황입니다 —
+      // 화면은 메타데이터와 원본 링크만 보여 줍니다.
+    }
   }
+
+  return { material, body: "", bodyAvailable: false };
 }
 
 /** 참고자료 하나를 가져옵니다. */
@@ -562,11 +659,78 @@ interface LearningCache {
 }
 
 let learningCache: LearningCache | null = null;
+let learningDbCache: (LearningCache & { srcAt: number }) | null = null;
+
+/**
+ * DB 의 learning_documents 로 통합 학습자료를 만듭니다.
+ *
+ * 코드 원문(sourceFiles[].code)은 DB 에 없습니다. 로컬 learning.json 이 있으면 그걸로
+ * 채우고(하이브리드), 없으면(배포 환경) "" 로 둡니다 — 경로·언어·고른 이유는 그대로
+ * 보이고, 코드 블록만 비게 됩니다.
+ *
+ * DB 조회 자체가 실패하면 null 을 돌려주고, 부르는 쪽이 파일 경로로 폴백합니다.
+ */
+async function loadLearningFromDb(): Promise<LearningCache | null> {
+  const resolved = await resolveSource();
+  if (learningDbCache && learningDbCache.srcAt === resolved.at) return learningDbCache;
+
+  let documents: LearningDocument[];
+  try {
+    documents = await fetchLearningDocsFromDb();
+  } catch {
+    return null;
+  }
+  if (documents.length === 0) return null;
+
+  try {
+    const localRaw = await readFile(join(DATA_DIR, "learning.json"), "utf8");
+    const local = JSON.parse(localRaw) as { documents?: LearningDocument[] };
+    const codeByKey = new Map<string, string>();
+    for (const doc of local.documents ?? []) {
+      for (const practice of doc.practice) {
+        for (const file of practice.sourceFiles) {
+          codeByKey.set(`${doc.materialId} ${practice.zipId} ${file.path}`, file.code);
+        }
+      }
+    }
+    for (const doc of documents) {
+      for (const practice of doc.practice) {
+        for (const file of practice.sourceFiles) {
+          file.code =
+            codeByKey.get(`${doc.materialId} ${practice.zipId} ${file.path}`) ?? "";
+        }
+      }
+    }
+  } catch {
+    // 로컬 learning.json 없음 — 배포 환경. code 는 "" 로 둡니다.
+  }
+
+  const byMaterial = new Map<string, LearningDocument>();
+  const haystack = new Map<string, string>();
+  for (const document of documents) {
+    byMaterial.set(document.materialId, document);
+    const parts: string[] = [];
+    for (const practice of document.practice) {
+      parts.push(practice.zipTitle, ...practice.reasons);
+      for (const file of practice.sourceFiles) parts.push(file.path, file.code);
+    }
+    haystack.set(document.materialId, parts.join("\n").toLowerCase());
+  }
+
+  learningDbCache = { stamp: resolved.at, documents, byMaterial, haystack, srcAt: resolved.at };
+  return learningDbCache;
+}
 
 /**
  * 통합 학습자료를 읽어 옵니다. 아직 만들지 않았으면 null 입니다. (오류가 아닙니다)
  */
 async function loadLearning(): Promise<LearningCache | null> {
+  if ((await resolveSource()).source === "db") {
+    const fromDb = await loadLearningFromDb();
+    if (fromDb) return fromDb;
+    // DB 모드인데 learning 조회만 실패 → 아래 파일 경로로 폴백.
+  }
+
   const path = join(DATA_DIR, "learning.json");
 
   let stamp: number;
@@ -773,9 +937,47 @@ interface ComparisonCache {
 }
 
 let comparisonCache: ComparisonCache | null = null;
+let comparisonDbCache: (ComparisonCache & { srcAt: number }) | null = null;
+
+/** DB 의 comparisons 로 비교 결과를 만듭니다. 조회 실패 시 null → 파일로 폴백. */
+async function loadComparisonsFromDb(): Promise<ComparisonCache | null> {
+  const resolved = await resolveSource();
+  if (comparisonDbCache && comparisonDbCache.srcAt === resolved.at) return comparisonDbCache;
+
+  let items: ComparisonItem[];
+  let generatedAt: string;
+  try {
+    ({ items, generatedAt } = await fetchComparisonsFromDb());
+  } catch {
+    return null;
+  }
+  // DB 에 이 데이터셋이 아직 없으면(부분 sync·초기화) 파일 경로가 있는지 먼저 봅니다.
+  if (items.length === 0) return null;
+
+  const byMaterial = new Map<string, ComparisonItem[]>();
+  for (const item of items) {
+    const ids = new Set([
+      ...item.lessons.map((l) => l.materialId),
+      ...item.taughtIn.map((t) => t.materialId),
+    ]);
+    for (const id of ids) {
+      const list = byMaterial.get(id) ?? [];
+      list.push(item);
+      byMaterial.set(id, list);
+    }
+  }
+
+  comparisonDbCache = { stamp: resolved.at, items, byMaterial, generatedAt, srcAt: resolved.at };
+  return comparisonDbCache;
+}
 
 /** 비교 결과를 읽어 옵니다. 아직 만들지 않았으면 null 입니다. (오류가 아닙니다) */
 async function loadComparisons(): Promise<ComparisonCache | null> {
+  if ((await resolveSource()).source === "db") {
+    const fromDb = await loadComparisonsFromDb();
+    if (fromDb) return fromDb;
+  }
+
   const path = join(DATA_DIR, "comparisons.json");
 
   let stamp: number;
@@ -971,9 +1173,63 @@ interface StudyCache {
 }
 
 let studyCache: StudyCache | null = null;
+let studyDbCache: (StudyCache & { srcAt: number }) | null = null;
+
+/**
+ * DB 의 study_guides + material_metadata.extra.studyPriority 로 학습 설명을 만듭니다.
+ * 조회 실패 시 null → 파일로 폴백.
+ */
+async function loadStudyFromDb(): Promise<StudyCache | null> {
+  const resolved = await resolveSource();
+  if (studyDbCache && studyDbCache.srcAt === resolved.at) return studyDbCache;
+
+  let guides: StudyGuide[];
+  let generatedAt: string;
+  let materials: StudyMaterial[];
+  try {
+    ({ guides, generatedAt } = await fetchStudyGuidesFromDb());
+    materials = await fetchStudyMaterialsFromDb();
+  } catch {
+    return null;
+  }
+  if (guides.length === 0) return null;
+
+  const byMaterial = new Map<string, StudyGuide[]>();
+  for (const guide of guides) {
+    for (const material of guide.materials) {
+      const list = byMaterial.get(material.materialId) ?? [];
+      list.push(guide);
+      byMaterial.set(material.materialId, list);
+    }
+  }
+
+  for (const list of byMaterial.values()) {
+    list.sort(
+      (a, b) =>
+        PRIORITY_ORDER.indexOf(a.learningPriority) - PRIORITY_ORDER.indexOf(b.learningPriority) ||
+        a.topic.localeCompare(b.topic, "ko"),
+    );
+  }
+
+  studyDbCache = {
+    stamp: resolved.at,
+    guides,
+    byMaterial,
+    materials,
+    materialById: new Map(materials.map((material) => [material.materialId, material])),
+    generatedAt,
+    srcAt: resolved.at,
+  };
+  return studyDbCache;
+}
 
 /** 학습 설명을 읽어 옵니다. 아직 만들지 않았으면 null 입니다. (오류가 아닙니다) */
 async function loadStudy(): Promise<StudyCache | null> {
+  if ((await resolveSource()).source === "db") {
+    const fromDb = await loadStudyFromDb();
+    if (fromDb) return fromDb;
+  }
+
   const path = join(DATA_DIR, "study-guides.json");
 
   let stamp: number;

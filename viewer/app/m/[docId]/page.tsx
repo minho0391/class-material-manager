@@ -56,7 +56,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
 
   if (!found) notFound();
 
-  const { material, body } = found;
+  const { material, body, bodyAvailable } = found;
   const related = await getRelatedReferences(material);
   // 아직 build-learning 을 돌리지 않았거나 실습 코드가 없으면 null 입니다.
   const learning = await getLearning(material.docId);
@@ -131,7 +131,19 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
       <Divider sx={{ mb: 3 }} />
 
       {/* ── 1. 강사 수업 설명 (학습의 중심) ── */}
-      <Markdown>{body}</Markdown>
+      {bodyAvailable ? (
+        <Markdown>{body}</Markdown>
+      ) : (
+        <Paper variant="outlined" sx={{ p: 3, maxWidth: "82ch", bgcolor: "action.hover" }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            본문은 이 환경에서 볼 수 없습니다
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            수업자료 본문은 로컬 <code>data/</code> 파일에서만 읽습니다. 지금은 자료 정보와
+            아래의 점검·복습 결과만 보여 줍니다. 원본은 위 “🔗 원본 열기” 로 확인할 수 있습니다.
+          </Typography>
+        </Paper>
+      )}
 
       {/* ── 2. 관련 실습 코드 — 있을 때만 ── */}
       {learning && learning.practice.length > 0 && (
