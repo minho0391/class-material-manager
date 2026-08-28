@@ -28,3 +28,17 @@ e2e/.auth/
 
 .vercel
 .env*
+
+# AI 도구 · 로컬 개발환경 설정 (이 PC 전용, 빌드·테스트·CI·배포와 무관)
+# - .agents/ .claude/  : Claude Code 스킬·개인 permission allowlist (공유 설정은 루트 CLAUDE.md)
+# - .mcp.json          : Supabase MCP 서버 엔드포인트 (동기화는 supabase CLI + env 로 동작)
+# - ClassMaterialManager.bat : 절대경로가 박힌 개인 dev 서버 런처
+# - skills-lock.json   : 로컬 Skill(hallmark) 설치 상태·해시 기록 (.agents/ 와 한 쌍)
+.agents/
+.claude/
+.mcp.json
+/ClassMaterialManager.bat
+/skills-lock.json
+
+# 대체된 v1 디자인 시안 (검토용 PNG · 현재 기준안은 design-mockups-v2/)
+/design-mockups/
