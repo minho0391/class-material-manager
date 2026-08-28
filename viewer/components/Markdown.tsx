@@ -77,6 +77,12 @@ export function Markdown({ children }: { children: string }) {
           borderColor: "divider",
           p: 2,
           borderRadius: 1,
+          // 긴 한 줄 코드도 화면 폭 안에서 접히게 합니다. `pre-wrap` 은 원문의 공백·개행을
+          // 그대로 두면서 **공백 위치에서 우선** 줄을 접고, `overflow-wrap: anywhere` 는
+          // 공백 없는 아주 긴 토큰(URL·해시 등)만 강제로 끊습니다. 저장된 Markdown/DB
+          // 원문에는 개행을 넣지 않으므로 이는 화면 표시 방식일 뿐입니다.
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
           overflowX: "auto",
           fontSize: "0.9rem",
           lineHeight: 1.7,
