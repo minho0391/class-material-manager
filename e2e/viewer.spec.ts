@@ -51,6 +51,24 @@ async function isEmptyState(page: Page): Promise<boolean> {
   return (await page.getByText("아직 자료가 없습니다").count()) > 0;
 }
 
+/**
+ * 로그인 계정 없이 시험을 돌리면 (e2e/auth.setup.ts 참고) 모든 화면이 /login 으로
+ * 튕겨 나갑니다. Supabase 환경변수 자체가 없으면 proxy 가 안내 화면(500)을 대신 보여줍니다.
+ * 둘 다 로그인 기능이 제 할 일을 하는 것이지 실패가 아니므로, 화면을 확인하는 시험은
+ * 여기서 건너뜁니다.
+ */
+test.beforeEach(async ({ page }) => {
+  const response = await page.goto("/");
+
+  if ((response?.status() ?? 0) >= 500) {
+    test.skip(true, "Supabase 환경변수(viewer/.env.local)가 없어 건너뜁니다.");
+  }
+
+  if (response?.url().includes("/login")) {
+    test.skip(true, "로그인 계정(E2E_SUPABASE_EMAIL/PASSWORD)이 없어 건너뜁니다.");
+  }
+});
+
 test.describe("화면이 뜬다", () => {
   test("홈에 들어가면 제목이 보인다", async ({ page }) => {
     const errors = watchErrors(page);

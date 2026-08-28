@@ -47,12 +47,24 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     cwd: "./viewer",
-    url: BASE_URL,
+    // url 대신 port 를 씁니다 — 로그인 기능이 생긴 뒤로 "/" 는 상황에 따라
+    // 307(로그인으로 리다이렉트)이나 500(Supabase 환경변수 없음)을 돌려줄 수 있는데,
+    // Playwright 는 url 로 확인할 때 5xx 를 "아직 안 떴다" 로 보고 계속 기다립니다.
+    // 응답 상태와 상관없이 포트가 열렸는지만 보는 쪽이 더 안정적입니다.
+    port: PORT,
     reuseExistingServer: true,
     timeout: 120_000,
     stdout: "ignore",
     stderr: "pipe",
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // 다른 시험보다 먼저 돌아 로그인 세션을 e2e/.auth/user.json 에 저장합니다. (e2e/auth.setup.ts)
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/user.json" },
+      dependencies: ["setup"],
+    },
+  ],
 });

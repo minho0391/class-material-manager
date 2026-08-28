@@ -6,22 +6,39 @@
 
 ```bash
 cd viewer
-npm install     # 처음 한 번만
-npm run dev     # → http://localhost:3000
+npm install                       # 처음 한 번만
+cp .env.example .env.local        # 처음 한 번만 — Supabase 값을 채웁니다 (아래 로그인 참고)
+npm run dev                       # → http://localhost:3000
 ```
 
 CLI 로 자료를 다시 수집한 뒤에는 **브라우저 새로고침만** 하면 됩니다.
 `data/index.json` 의 갱신 시각이 바뀌면 뷰어가 알아서 자료를 다시 읽습니다.
 
-## 읽기 전용입니다
+## 로그인
 
-이 뷰어는 자료를 **보여주기만** 합니다.
+모든 화면은 로그인해야 볼 수 있습니다. 로그인하지 않은 채로 아무 주소에나 들어가면
+`/login` 으로 보냅니다. 이메일 · 비밀번호 · 로그인 버튼만 있고, **회원가입 화면은 없습니다** —
+계정은 Supabase 콘솔(Authentication → Users)에서 미리 만들어 둡니다.
+
+- 로그인은 [Supabase Auth](https://supabase.com/docs/guides/auth) 의 이메일/비밀번호 방식을 그대로 씁니다.
+- 로그인 상태는 쿠키에 담긴 세션으로 유지되고, `proxy.ts` 가 요청마다 만료 여부를 확인해 갱신합니다.
+- 오른쪽 위 🚪 버튼이 로그아웃입니다.
+- `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY` 가 없으면 로그인 화면 대신
+  설정 안내 문구가 뜹니다. `.env.example` 을 참고하세요.
+- 나중에 자료마다 "내 것"을 구분할 일이 생기면, DB 테이블에서 `auth.users.id` 를
+  `user_id` 로 참조하고 RLS 에서 `auth.uid() = user_id` 로 접근을 제한할 수 있게
+  Supabase Auth 를 그대로 씁니다 — 이 로그인은 그 구조를 미리 준비해 둔 것입니다.
+
+## 읽기 전용입니다 (로그인 제외)
+
+수업자료 자체는 **보여주기만** 합니다. 로그인 화면만 예외입니다 — 로그인 상태를
+유지하려면 서버가 세션 쿠키를 쓸 수밖에 없습니다. (아래 [로그인](#로그인) 참고)
 
 | 확인 항목 | 상태 |
 |---|---|
-| 파일을 쓰는 코드 | **없음** (`writeFile`·`unlink`·`rename` 등 0건) |
-| API 라우트 | **없음** — 쓰기 요청을 받을 통로 자체가 없습니다 |
-| 파일 접근 | `readFile`·`readdir` 만 사용 |
+| 자료를 쓰는 코드 | **없음** (`writeFile`·`unlink`·`rename` 등 0건) |
+| 자료용 API 라우트 | **없음** — 수업자료 쪽에 쓰기 요청을 받을 통로 자체가 없습니다 |
+| 자료 접근 | `readFile`·`readdir` 만 사용 |
 | 경로 안전 | 주소로 들어온 값을 `index.json` 에 등록된 것과 **대조**한 뒤에만 파일을 엽니다 |
 
 마지막 항목이 중요합니다. 주소창의 값을 그대로 파일 경로로 쓰면 `../../` 같은 값으로
@@ -44,6 +61,7 @@ CLI 로 자료를 다시 수집한 뒤에는 **브라우저 새로고침만** �
 
 | 주소 | 화면 |
 |---|---|
+| `/login` | 로그인 (이메일 · 비밀번호) — 로그인 안 하면 여기로 보냅니다 |
 | `/` | 홈 — 전체 규모와 과목 카드 |
 | `/s/[과목]` | 과목별 목록 (수업자료 + 공식 문서 요약을 나란히) |
 | `/m/[docId]` | 수업자료 상세 |
@@ -62,20 +80,23 @@ CLI 로 자료를 다시 수집한 뒤에는 **브라우저 새로고침만** �
 
 ```
 viewer/
+├── proxy.ts                     모든 요청 앞단 — 로그인 여부 확인 (Next.js 16 의 middleware.ts)
 ├── app/
 │   ├── layout.tsx              바깥 틀 (테마 + 사이드바)
 │   ├── page.tsx                홈
+│   ├── login/                  로그인 화면 (이메일 · 비밀번호만)
 │   ├── s/[subject]/page.tsx    과목별 목록
 │   ├── m/[docId]/page.tsx      수업자료 상세
 │   ├── r/[subject]/[slug]/     공식 문서 요약 상세
 │   └── search/page.tsx         검색
 ├── components/
-│   ├── AppShell.tsx            AppBar + 사이드바
+│   ├── AppShell.tsx            AppBar + 사이드바 (로그인 화면에서는 빠집니다)
 │   ├── Markdown.tsx            마크다운 렌더링
 │   └── nav.tsx                 ★ 링크 부품 (아래 설명 참고)
 └── lib/
     ├── data.ts                 ★ 자료를 읽는 유일한 통로
-    └── theme.ts                색과 글꼴
+    ├── theme.ts                색과 글꼴
+    └── supabase/                로그인 · 로그아웃 (Supabase Auth)
 ```
 
 ### `components/nav.tsx` 가 따로 있는 이유
