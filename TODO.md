@@ -72,6 +72,30 @@
     검증 후 `data/` 원상 복원
   * `data/` 숨긴 상태에서도 전량 렌더 → DB가 실제 소스임을 확정
 
+### Momentalk 실전 예제 추가 (2026-08-31)
+
+* [x] **학습용 실전 예제(project_examples) 추가** — 수업자료 파이프라인과 **완전히 분리된**
+  격리 테이블로 Momentalk(`minho0391/est-fe-3rd-project`) 코드 발췌를 학습 자료로 연결.
+  `PROJECT_CONTEXT.md` "학습용 실전 예제(project_examples)" 절 참고.
+  * 신규 migration `20260831000000_create_project_examples.sql` (테이블 1개 + RLS + `authenticated`
+    SELECT policy·GRANT + `service_role` INSERT/UPDATE, DELETE 없음). **로컬·원격 둘 다 적용 완료.**
+  * 신규 소스 `project-examples/momentalk.json` (저장소에 커밋, `data/` 아님) — 예제 11건,
+    코드는 고정 커밋 `004b4e85`에서 라인 범위만 **원문 그대로** 발췌, `file_url`은 커밋 고정
+    permalink, `authorship_note`는 README 명시 역할(기능 영역 단위)만.
+  * 신규 CLI `node src/index.ts sync-project-examples` (`src/sync/build-project-examples.ts`·
+    `project-examples-runner.ts`) — upsert 전용. **`refresh`/`ci-refresh`/`sync-supabase`/
+    `verifySupabase()`에 넣지 않음** — 자동 갱신은 이 테이블을 모름.
+  * 뷰어: 신규 `/examples` 목록·상세(`viewer/lib/projectExamples.ts`, DB 우선·파일 폴백),
+    nav 항목, `/m/[docId]` 하단 "관련 실전 예제" 영역(연결된 예제 있을 때만). 기존 학습 흐름
+    무변경.
+  * 검증: 루트 typecheck·194 tests·`security-check --skip-data`, 뷰어 typecheck·`next build`,
+    로컬 Supabase migration+sync green·idempotent·anon SELECT 거부, **기존 `sync-supabase`
+    verify 로컬·원격 모두 green(EXIT 0), 기존 7테이블+`refresh_state` 행 수 불변**
+    (393/393/62/27/355/355/203/1), Playwright E2E 18/18(원격 DB 읽기 포함), agent-browser
+    시각 확인, Codex 독립 리뷰(Major 1건 — `mailto:` 스킴 허용 → http(s) 전용으로 수정, 재검증).
+  * 원격 백필: `project_examples` 11행(168 kB). Vercel 배포 시 `NEXT_PUBLIC_SUPABASE_*`만
+    있으면 자동으로 DB에서 읽음.
+
 ## 다음 작업
 
 * [x] **본문·실습 코드 원문·references의 DB 이관 (방안 A)** — 로컬 구현·검증·Codex 리뷰·

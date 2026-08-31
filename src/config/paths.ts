@@ -28,6 +28,15 @@ export const MATERIALS_DIR = join(DATA_DIR, "materials");
 /** 공식 문서 요약 */
 export const REFERENCES_DIR = join(DATA_DIR, "references");
 
+/**
+ * 학습용 실전 예제 소스 (Momentalk 등 외부 프로젝트 코드 발췌).
+ *
+ * data/ 가 아니라 저장소에 직접 커밋되는 수기 큐레이션 파일입니다 — 공개 저장소의
+ * 코드 발췌라 강사 저작물이 아니고, 버전 관리가 필요합니다. 수업자료 파이프라인
+ * (refresh/ci-refresh)과 섞지 않고 별도 CLI(sync-project-examples)만 이 폴더를 읽습니다.
+ */
+export const PROJECT_EXAMPLES_DIR = join(ROOT_DIR, "project-examples");
+
 /** 자료가 바뀌었을 때 이전 버전을 보관하는 곳 */
 export const HISTORY_DIR = join(DATA_DIR, "history");
 

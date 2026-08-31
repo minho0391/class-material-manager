@@ -274,6 +274,49 @@ DB로 확장합니다.
 **상태**: 로컬 구현·검증·Codex 리뷰까지 완료. **원격 Supabase migration 3개 적용과 백필은
 결과 재보고 후 사용자 승인 시 진행.**
 
+### 학습용 실전 예제 (project_examples) — 격리 설계 (완료, 2026-08-31)
+
+**목적**: 기존 수업자료를 개념 학습의 중심으로 유지하면서, 외부 실전 프로젝트
+(Momentalk = `minho0391/est-fe-3rd-project`, EST 오르미 FE 13기 3차 팀 프로젝트)의 실제
+코드를 "프로젝트/실전 예제"로 연결해 복습 시 함께 보게 한다. **Momentalk을 포트폴리오로
+추가하는 것이 아니라 학습용 예제로만 쓴다.**
+
+**왜 신규 격리 테이블인가 (기존 스키마 재사용 안 함)**
+
+- `src/sync/verify.ts`의 `hasVerifyProblems`는 `material_bodies`·`reference_documents`·
+  `relations`에 "원본 JSON에 없는 DB 행"이 있으면 **실패**로 본다. 자동 갱신
+  (`ci-refresh` = `refresh` + `sync-supabase` + `verifySupabase`)이 매일 이 검증을 통과해야
+  하므로, 수업자료 파이프라인이 만들지 않는 Momentalk 데이터를 그 테이블에 넣으면 자동
+  갱신이 깨진다. `material_metadata`/`learning_documents`에 넣어도 매 갱신마다 경고가 남고
+  홈 통계·과목 목록이 오염된다.
+- 그래서 **완전히 분리된 테이블 1개 + 분리된 CLI + 분리된 소스 파일**로 둔다.
+
+**확정 구조**
+
+| 항목 | 값 |
+|---|---|
+| 테이블 | `project_examples` (migration `20260831000000_create_project_examples.sql`, 로컬·원격 적용됨) |
+| PK | `id` (예: `momentalk-chosung-quiz-state-machine`) |
+| 권한 | 기존 7개와 동일 패턴 — RLS 활성 + `authenticated` SELECT policy·GRANT, `anon` 불가, `service_role` 는 SELECT/INSERT/UPDATE만 (**DELETE 없음**) |
+| 소스 | `project-examples/*.json` — **저장소에 커밋**(공개 GitHub 코드 발췌라 강사 저작물 아님, `data/` 아님) |
+| CLI | `node src/index.ts sync-project-examples` — upsert(on_conflict=id) 전용, 자체 대조 검증 |
+| 뷰어 | `/examples` 목록·상세, `/m/[docId]` 하단 "관련 실전 예제"(연결 있을 때만). `viewer/lib/projectExamples.ts` — DB 우선, 없으면 `project-examples/*.json` 폴백 |
+
+**절대 규칙 (유지보수 시 지킬 것)**
+
+- `project_examples` 를 `refresh-runner.ts`·`auto-refresh.ts`(ci-refresh)·`sync-runner.ts`·
+  `verify.ts` 어디에도 **넣지 않는다.** 자동 갱신은 이 테이블의 존재를 몰라야 한다.
+- 기존 7개 테이블·`refresh_state`·기존 파서·기존 학습 흐름은 건드리지 않는다.
+- `code` 는 원본 저장소의 **고정 커밋에서 라인 범위만 원문 그대로** 발췌한다. 의미를
+  바꾸지 않는다. `file_url` 은 커밋 SHA 고정 permalink.
+- 팀 프로젝트이므로 **파일 단위 작성자를 임의 추정하지 않는다.** `authorship_note` 는
+  저장소 README에 명시된 **기능 영역 단위** 역할만 담고, 불명확하면 비운다.
+- `repo_url`/`file_url` 은 http(s) 만 허용(sync 저장 시 + 뷰어 렌더 시 이중 검증).
+
+**현재 데이터**: Momentalk 예제 11건(고정 커밋 `004b4e856f95892d44759b8936e1e797c7216dc9`),
+과목별 react 4 · nextjs 3 · supabase 3 · javascript 1. 원격 `project_examples` ~168 kB.
+자세한 검증 결과는 `TODO.md` "Momentalk 실전 예제 추가" 참고.
+
 ### 첫 접속 트리거 24시간 주기 백그라운드 자동 갱신 (완료, 2026-08-26)
 
 이전 절의 "하루 첫 접속 자동 갱신(다음 구현 단계)" 설계를 대체합니다 — "오늘 첫 갱신인지"

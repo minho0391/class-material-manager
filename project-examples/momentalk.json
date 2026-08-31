@@ -1,0 +1,338 @@
+{
+  "version": 1,
+  "project": "momentalk",
+  "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+  "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+  "note": "Momentalk(EST 오르미 FE 13기 3차 팀 프로젝트, TEAM MOSAIC) 저장소의 학습용 실전 예제 발췌. 코드는 위 커밋에서 원문 그대로 잘라 왔으며 수정하지 않았습니다. authorship_note 는 저장소 README에 명시된 기능 영역 단위 역할만 반영하며 파일 단위 작성자는 추정하지 않습니다.",
+  "examples": [
+    {
+      "id": "momentalk-chosung-quiz-state-machine",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "초성 퀴즈 — useState 단계 전환 + 조건부 렌더링",
+      "summary": "화면을 setup·play·answer 세 단계로 두고 `step` 상태 하나로 어떤 자식 컴포넌트를 보여줄지 정한다. 자식(QuizSetup/QuizPlay/QuizAnswer)에는 콜백을 props 로 내려 상태를 부모가 소유한다. `{step === '...' && <Child/>}` 형태의 조건부 렌더링, 뒤로가기 이벤트 처리(handleBack)의 분기까지 한 파일에서 볼 수 있어, 수업의 useState·이벤트 핸들링·조건부 렌더링 개념이 실제 화면에서 어떻게 조립되는지 확인하기 좋다.",
+      "subject": "react",
+      "concepts": [
+        "useState",
+        "조건부 렌더링",
+        "이벤트 처리",
+        "컴포넌트 합성",
+        "상태 끌어올리기",
+        "MUI"
+      ],
+      "file_path": "src/components/games/ChosungQuiz.jsx",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/components/games/ChosungQuiz.jsx",
+      "language": "jsx",
+      "code": "\"use client\";\n\nimport { useState } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport Box from \"@mui/material/Box\";\nimport GameHeader from \"@/components/layout/GameHeader\";\nimport Footer from \"@/components/layout/Footer\";\nimport QuizSetup from \"./QuizSetup\";\nimport QuizPlay from \"./QuizPlay\";\nimport QuizAnswer from \"./QuizAnswer\";\nimport { gameContentSx, gamePageSx } from \"./styles\";\n\nexport default function ChosungQuiz() {\n  const router = useRouter();\n  const [step, setStep] = useState(\"setup\"); // setup | play | answer\n  const [quiz, setQuiz] = useState(null);\n\n  const handleSubmit = data => {\n    setQuiz(data);\n    setStep(\"play\");\n  };\n\n  const handleReveal = () => setStep(\"answer\");\n\n  const handleNext = () => {\n    setQuiz(null);\n    setStep(\"setup\");\n  };\n\n  // 출제 화면에서는 이전 페이지로, 그 뒤 단계에서는 한 단계씩 되돌아감\n  const handleBack = () => {\n    if (step === \"play\") setStep(\"setup\");\n    else if (step === \"answer\") setStep(\"play\");\n    else router.back();\n  };\n\n  return (\n    <Box sx={{ display: \"flex\", flexDirection: \"column\", width: \"100%\", flex: 1 }}>\n      <GameHeader title=\"초성 퀴즈\" onBack={handleBack} />\n\n      <Box component=\"main\" sx={{ ...gamePageSx, py: { xs: 4, lg: 6 } }}>\n        <Box sx={gameContentSx}>\n          {step === \"setup\" && <QuizSetup onSubmit={handleSubmit} />}\n          {step === \"play\" && <QuizPlay quiz={quiz} onReveal={handleReveal} />}\n          {step === \"answer\" && <QuizAnswer quiz={quiz} onNext={handleNext} />}\n        </Box>\n      </Box>\n\n      <Footer />\n    </Box>\n  );\n}",
+      "line_start": 1,
+      "line_end": 52,
+      "related_material_ids": [
+        "1JLvhOpeNX8-EdPkEp1eYgqQP4XmiVI6CEc3Tg9EQpro",
+        "1Et_OStoxyfctX2Shin0FizlwJbP0wt64hkG91wIKPQk",
+        "1Gjszssjrh0IglY766h3Xv-ggywJ4iPwI6EtxuxtigMo",
+        "1LDQv5dSs8Dq8vHLBw6LHFdhwyvIdjTqJJnoopzBUgd4"
+      ],
+      "authorship_note": "저장소 README 기준 '미니게임'은 이민호(팀장) 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 10
+    },
+    {
+      "id": "momentalk-use-focus-trap-hook",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "useFocusTrap — useEffect 정리 함수와 useRef 로 만든 커스텀 훅",
+      "summary": "모달이 열려 있는 동안 Tab 이동을 모달 안에 가두고, 닫히면 원래 요소로 포커스를 되돌리는 커스텀 훅. `useEffect` 안에서 `addEventListener` 하고 반환 함수에서 `removeEventListener` + 포커스 복원까지 하는 정리 함수의 전형을 보여준다. `useRef` 두 개(컨테이너 참조, 이전 포커스 요소 기억)의 쓰임, 의존성 배열(`[open]`)의 의미, 그리고 접근성 요구(포커스 순환)를 코드로 옮긴 예시로 useEffect·useRef·커스텀 훅 수업과 바로 연결된다.",
+      "subject": "react",
+      "concepts": [
+        "커스텀 훅",
+        "useEffect",
+        "정리(cleanup) 함수",
+        "useRef",
+        "이벤트 리스너",
+        "웹 접근성"
+      ],
+      "file_path": "src/hooks/useFocusTrap.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/hooks/useFocusTrap.js",
+      "language": "javascript",
+      "code": "// [모달 포커스 관리] 모달이 열리면 안쪽으로 포커스를 옮기고 Tab 순환을 모달 안에 가둡니다.\n// 닫힐 때는 모달을 열었던 요소로 포커스를 되돌립니다.\nimport { useEffect, useRef } from \"react\";\n\n// 포커스를 받을 수 있는 요소들. disabled·tabindex=\"-1\" 은 제외합니다.\nconst FOCUSABLE_SELECTOR = [\n  \"a[href]\",\n  \"button:not([disabled])\",\n  \"input:not([disabled])\",\n  \"select:not([disabled])\",\n  \"textarea:not([disabled])\",\n  '[tabindex]:not([tabindex=\"-1\"])',\n].join(\",\");\n\nexport default function useFocusTrap(open) {\n  const containerRef = useRef(null);\n  const previousFocusRef = useRef(null);\n\n  useEffect(() => {\n    if (!open) return undefined;\n\n    const container = containerRef.current;\n    if (!container) return undefined;\n\n    // 모달을 열었던 요소를 기억해 뒀다가 닫을 때 되돌려 줍니다.\n    previousFocusRef.current = document.activeElement;\n\n    const getFocusable = () =>\n      Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(\n        el => el.offsetParent !== null,\n      );\n\n    // 첫 포커스는 모달 안쪽 첫 요소로 옮깁니다.\n    const focusable = getFocusable();\n    (focusable[0] ?? container).focus();\n\n    const handleKeyDown = event => {\n      if (event.key !== \"Tab\") return;\n\n      const items = getFocusable();\n      if (items.length === 0) {\n        event.preventDefault();\n        return;\n      }\n\n      const first = items[0];\n      const last = items[items.length - 1];\n\n      // 마지막에서 Tab 은 처음으로, 처음에서 Shift+Tab 은 마지막으로 돌립니다.\n      if (!event.shiftKey && document.activeElement === last) {\n        event.preventDefault();\n        first.focus();\n      } else if (event.shiftKey && document.activeElement === first) {\n        event.preventDefault();\n        last.focus();\n      }\n    };\n\n    container.addEventListener(\"keydown\", handleKeyDown);\n\n    return () => {\n      container.removeEventListener(\"keydown\", handleKeyDown);\n      previousFocusRef.current?.focus?.();\n    };\n  }, [open]);\n\n  return containerRef;\n}",
+      "line_start": 1,
+      "line_end": 68,
+      "related_material_ids": [
+        "14wmj7HCNsplUxO1VN49tqtCfaSow7md9TaQ1MS4shWU",
+        "1H5toucLXeXOM8U_-XBGC2Oyi4iUx7ZZVe-cTsk5kOuU",
+        "11IY6WWNEtSjZNJALMsL5IflXLuoedHnD86ICDQr3RUc"
+      ],
+      "authorship_note": "저장소 README에 이 파일(공통 인프라 계층)의 담당자는 별도로 명시돼 있지 않습니다. 추정하지 않습니다.",
+      "ord": 20
+    },
+    {
+      "id": "momentalk-button-variant-wrapper",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "공통 Button — props 기본값과 variant 매핑으로 MUI 감싸기",
+      "summary": "프로젝트 전역에서 쓰는 버튼을 한 컴포넌트로 모았다. `variant='primary'|'secondary'|'tertiary'|'text'` 를 받아 매핑 객체(variantMap/variantStyles)로 MUI Button 의 실제 variant 와 sx 를 정한다. props 구조 분해 + 기본값, `...rest` 전달, `sx` 병합 등 '같은 UI 가 여러 번 반복되면 공통 컴포넌트로 뽑는다'는 재사용 원칙의 작은 실물 예시.",
+      "subject": "react",
+      "concepts": [
+        "props 구조 분해",
+        "기본값 매개변수",
+        "공통 컴포넌트 재사용",
+        "MUI",
+        "합성(spread)"
+      ],
+      "file_path": "src/components/ui/Button.jsx",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/components/ui/Button.jsx",
+      "language": "jsx",
+      "code": "\"use client\";\n\nimport MuiButton from \"@mui/material/Button\";\n\nconst variantMap = {\n  primary: \"contained\",\n  secondary: \"outlined\",\n  tertiary: \"outlined\",\n  text: \"text\",\n};\n\nconst variantStyles = {\n  primary: {\n    bgcolor: \"primary.main\",\n    color: \"#fff\",\n    \"&:hover\": { bgcolor: \"primary.main\", filter: \"brightness(0.96)\" },\n  },\n  secondary: {\n    bgcolor: \"background.paper\",\n    color: \"primary.main\",\n    borderWidth: 2,\n    borderColor: \"primary.main\",\n    \"&:hover\": {\n      borderWidth: 2,\n      borderColor: \"primary.main\",\n      bgcolor: \"background.paper\",\n    },\n  },\n  tertiary: {\n    bgcolor: \"background.paper\",\n    color: \"text.primary\",\n    borderWidth: 1,\n    borderColor: \"divider\",\n    \"&:hover\": { borderColor: \"divider\", bgcolor: \"background.paper\" },\n  },\n  text: {\n    color: \"primary.main\",\n    \"&:hover\": { bgcolor: \"transparent\" },\n  },\n};\n\nexport default function Button({\n  variant = \"primary\",\n  size = \"md\",\n  leadingIcon,\n  trailingIcon,\n  children,\n  sx,\n  ...rest\n}) {\n  return (\n    <MuiButton\n      variant={variantMap[variant]}\n      size={size}\n      startIcon={leadingIcon}\n      endIcon={trailingIcon}\n      sx={{ ...variantStyles[variant], ...sx }}\n      {...rest}\n    >\n      {children}\n    </MuiButton>\n  );\n}",
+      "line_start": 1,
+      "line_end": 63,
+      "related_material_ids": [
+        "1m1LQPW0t_Slw1WRpgSOR_bcMy4PsBRgZYrn61sGGcvo",
+        "164YOHvw-BvtwB9Ue_x593k_C02cfFbnKgTuF6xD5qxw",
+        "1Ps3Gdi8rQLekmWM55h5bHc5AMJQlLOv4oQO5EljLRZI"
+      ],
+      "authorship_note": "저장소 README에 이 파일(공통 인프라 계층)의 담당자는 별도로 명시돼 있지 않습니다. 추정하지 않습니다.",
+      "ord": 30
+    },
+    {
+      "id": "momentalk-random-pick-game-logic",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "랜덤 픽 — Fisher–Yates 셔플과 여러 훅으로 짠 게임 로직",
+      "summary": "공을 섞어 하나를 뽑는 미니게임의 로직 부분(렌더 직전까지). 순수 함수 `shuffle` 은 Fisher–Yates 알고리즘, `useEffect` 로 setTimeout 을 여러 개 걸고 반환 함수에서 전부 정리(clearTimers), `useMemo` 로 형식 필터 결과를 파생, `pickRandom` 으로 직전 결과를 제외하고 무작위 선택한다. Supabase `default_contents` 조회 effect 의 `alive` 플래그(언마운트 후 setState 방지)도 함께 볼 수 있다. 배열·반복문·조건문 + useState/useEffect 수업이 게임 하나로 합쳐진 예시.",
+      "subject": "react",
+      "concepts": [
+        "게임 로직",
+        "Fisher–Yates 셔플",
+        "useState",
+        "useEffect",
+        "정리(cleanup) 함수",
+        "useMemo",
+        "useRef",
+        "이벤트 처리",
+        "조건부 렌더링",
+        "Supabase 조회"
+      ],
+      "file_path": "src/components/games/RandomPick.jsx",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/components/games/RandomPick.jsx#L50-L166",
+      "language": "jsx",
+      "code": "function shuffle(list) {\n  const next = [...list];\n  for (let i = next.length - 1; i > 0; i -= 1) {\n    const j = Math.floor(Math.random() * (i + 1));\n    [next[i], next[j]] = [next[j], next[i]];\n  }\n  return next;\n}\n\nexport default function RandomPick() {\n  const [order, setOrder] = useState(() => balls.map((_, i) => i));\n  const [isShuffling, setIsShuffling] = useState(true);\n  const [pool, setPool] = useState([]);\n  const [loadError, setLoadError] = useState(false);\n  const [result, setResult] = useState(null);\n  const [selectedFormat, setSelectedFormat] = useState(ALL_FORMATS);\n  const [gap, setGap] = useState(0);\n  const timers = useRef([]);\n  const rowRef = useRef(null);\n\n  const clearTimers = () => {\n    timers.current.forEach(clearTimeout);\n    timers.current = [];\n  };\n\n  // 공이 놓이는 줄의 실제 폭을 재서 칸 간격을 계산합니다.\n  // 공 크기가 화면 폭에 따라 달라지므로 상수 대신 실제 공 폭을 측정합니다.\n  useLayoutEffect(() => {\n    const row = rowRef.current;\n    if (!row) return;\n\n    const measure = () => {\n      const width = row.getBoundingClientRect().width;\n      const ballWidth = row.firstElementChild?.getBoundingClientRect().width ?? BALL_SIZE_FALLBACK;\n      const slots = balls.length - 1;\n      setGap(slots > 0 ? (width - ballWidth) / slots : 0);\n    };\n\n    measure();\n    const observer = new ResizeObserver(measure);\n    observer.observe(row);\n    return () => observer.disconnect();\n  }, []);\n\n  useEffect(() => {\n    for (let step = 1; step <= SHUFFLE_STEPS; step += 1) {\n      timers.current.push(setTimeout(() => setOrder(prev => shuffle(prev)), step * STEP_DURATION));\n    }\n    timers.current.push(setTimeout(() => setIsShuffling(false), SHUFFLE_STEPS * STEP_DURATION));\n    return clearTimers;\n  }, []);\n\n  // TODO: 추후 Edge Function으로 AI 생성 콘텐츠를 받아오도록 변경 예정.\n  // 현재는 default_contents 조회로 유지.\n  // 형식 필터는 매번 다시 조회하지 않고 받아온 목록에서 걸러 씁니다.\n  useEffect(() => {\n    let alive = true;\n\n    (async () => {\n      const { data, error } = await createClient()\n        .from(\"default_contents\")\n        .select(\"id, title, scripts, tips, extras, format_code\")\n        .in(\"format_code\", CONTENT_FORMATS)\n        .eq(\"is_active\", true)\n        .limit(500);\n\n      if (!alive) return;\n      if (error || !data || data.length === 0) {\n        setLoadError(true);\n        return;\n      }\n      setPool(data);\n    })();\n\n    return () => {\n      alive = false;\n    };\n  }, []);\n\n  // 실제로 콘텐츠가 있는 형식만 칩으로 보여줍니다.\n  const availableFormats = useMemo(() => {\n    const codes = new Set(pool.map(item => item.format_code));\n    return CONTENT_FORMATS.filter(code => codes.has(code));\n  }, [pool]);\n\n  const filteredPool = useMemo(\n    () =>\n      selectedFormat === ALL_FORMATS\n        ? pool\n        : pool.filter(item => item.format_code === selectedFormat),\n    [pool, selectedFormat],\n  );\n\n  const pickRandom = previousId => {\n    const candidates = filteredPool.filter(item => item.id !== previousId);\n    const list = candidates.length > 0 ? candidates : filteredPool;\n    return list.length > 0 ? list[Math.floor(Math.random() * list.length)] : null;\n  };\n\n  const skipShuffle = () => {\n    if (!isShuffling) return;\n    clearTimers();\n    setOrder(prev => shuffle(prev));\n    setIsShuffling(false);\n  };\n\n  const handlePick = () => setResult(pickRandom(null));\n  const handleRepick = () => setResult(prev => pickRandom(prev?.id));\n  const handleClose = () => setResult(null);\n\n  const isReady = !isShuffling && filteredPool.length > 0;\n\n  let titleText = \"마음에 드는 공을 하나 고르세요\";\n  if (isShuffling) titleText = \"공을 섞는 중이에요\";\n  else if (loadError) titleText = \"콘텐츠를 불러오지 못했어요\";\n  else if (pool.length === 0) titleText = \"콘텐츠를 불러오는 중이에요\";\n  else if (filteredPool.length === 0) titleText = \"이 형식에는 콘텐츠가 없어요\";",
+      "line_start": 50,
+      "line_end": 166,
+      "related_material_ids": [
+        "1Gjszssjrh0IglY766h3Xv-ggywJ4iPwI6EtxuxtigMo",
+        "1Et_OStoxyfctX2Shin0FizlwJbP0wt64hkG91wIKPQk",
+        "14wmj7HCNsplUxO1VN49tqtCfaSow7md9TaQ1MS4shWU",
+        "17MerbozH6mLKSw-5KnqnyLCOf2x1vAxBt2C9DYBE_Sc"
+      ],
+      "authorship_note": "저장소 README 기준 '미니게임'은 이민호(팀장) 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 40
+    },
+    {
+      "id": "momentalk-hangul-chosung-util",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "한글 초성 추출 — 유니코드 계산 순수 함수",
+      "summary": "완성형 한글의 유니코드 코드포인트에서 초성을 계산하는 순수 함수 두 개. `toChosung('소개팅') → ['ㅅ','ㄱ','ㅌ']`. 부수효과가 없어 그대로 단위 테스트가 가능하고, 전개 연산자(`[...word]`)로 문자 단위 순회, `charCodeAt`, `Math.floor` 나눗셈 등 자바스크립트 기본 문법만으로 도메인 로직을 만든 예시. 초성 퀴즈 게임이 이 함수를 쓴다.",
+      "subject": "javascript",
+      "concepts": [
+        "순수 함수",
+        "문자열/유니코드 처리",
+        "배열 메서드",
+        "테스트 용이성"
+      ],
+      "file_path": "src/lib/hangul.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/lib/hangul.js",
+      "language": "javascript",
+      "code": "const CHOSUNG = [\n  \"ㄱ\",\n  \"ㄲ\",\n  \"ㄴ\",\n  \"ㄷ\",\n  \"ㄸ\",\n  \"ㄹ\",\n  \"ㅁ\",\n  \"ㅂ\",\n  \"ㅃ\",\n  \"ㅅ\",\n  \"ㅆ\",\n  \"ㅇ\",\n  \"ㅈ\",\n  \"ㅉ\",\n  \"ㅊ\",\n  \"ㅋ\",\n  \"ㅌ\",\n  \"ㅍ\",\n  \"ㅎ\",\n];\n\nconst HANGUL_START = 0xac00; // '가'\nconst HANGUL_END = 0xd7a3; // '힣'\nconst JUNG_JONG_COUNT = 21 * 28;\n\n/** \"소개팅\" → [\"ㅅ\", \"ㄱ\", \"ㅌ\"] · 한글이 아닌 글자는 그대로 반환 */\nexport function toChosung(word) {\n  return [...word].map(char => {\n    const code = char.charCodeAt(0);\n    if (code < HANGUL_START || code > HANGUL_END) return char;\n    return CHOSUNG[Math.floor((code - HANGUL_START) / JUNG_JONG_COUNT)];\n  });\n}\n\n/** 완성형 한글만 세기 (공백·기호 제외) */\nexport function countHangul(word) {\n  return [...word].filter(char => {\n    const code = char.charCodeAt(0);\n    return code >= HANGUL_START && code <= HANGUL_END;\n  }).length;\n}",
+      "line_start": 1,
+      "line_end": 42,
+      "related_material_ids": [
+        "1_dLoqERFBN2rIv8x40PtyGlzpbVGaOKAm0LUFEeYTEs",
+        "17MerbozH6mLKSw-5KnqnyLCOf2x1vAxBt2C9DYBE_Sc",
+        "1fhRBcjSPLJxleIVwjxC3KOhhNyHNL_vi6r8suTlEP-Q"
+      ],
+      "authorship_note": "저장소 README 기준 '미니게임'은 이민호(팀장) 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 50
+    },
+    {
+      "id": "momentalk-app-router-page-metadata",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "App Router page — 서버 컴포넌트가 metadata 를 선언하고 클라이언트 컴포넌트를 위임",
+      "summary": "`/game/chosung-quiz` 라우트의 진입 파일. 이 파일 자체는 `\"use client\"` 가 없는 서버 컴포넌트라 `export const metadata` 로 SEO/OG 정보를 선언하고, 실제 상호작용은 `\"use client\"` 가 붙은 `<ChosungQuiz />` 에 넘긴다. App Router 에서 폴더 = 경로, `page` = 그 경로의 화면, 서버 컴포넌트가 기본값이라는 규칙을 가장 짧게 보여주는 예시.",
+      "subject": "nextjs",
+      "concepts": [
+        "Next.js App Router",
+        "page.jsx",
+        "정적 metadata",
+        "서버/클라이언트 컴포넌트 경계",
+        "라우팅"
+      ],
+      "file_path": "src/app/game/chosung-quiz/page.jsx",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/app/game/chosung-quiz/page.jsx",
+      "language": "jsx",
+      "code": "import ChosungQuiz from \"@/components/games/ChosungQuiz\";\nimport { SITE_NAME, buildOpenGraph } from \"@/lib/site\";\n\nconst TITLE = \"초성 퀴즈\";\nconst DESCRIPTION = \"직접 문제를 내고 초성 힌트로 맞히는 퀴즈 게임입니다.\";\n\nexport const metadata = {\n  title: TITLE,\n  description: DESCRIPTION,\n  openGraph: buildOpenGraph({\n    title: `${TITLE} | ${SITE_NAME}`,\n    description: DESCRIPTION,\n  }),\n};\n\nexport default function ChosungQuizPage() {\n  return <ChosungQuiz />;\n}",
+      "line_start": 1,
+      "line_end": 18,
+      "related_material_ids": [
+        "18CUxbf3--TfKOVa6o4monPBZTPUeejSS6m9DzcZSZMU",
+        "1KC_ycwHIIj-Lx3RJNT2x7eSQ8mIMWQoJ7VGknVVy2DM"
+      ],
+      "authorship_note": "저장소 README에 이 파일(공통 인프라 계층)의 담당자는 별도로 명시돼 있지 않습니다. 추정하지 않습니다.",
+      "ord": 60
+    },
+    {
+      "id": "momentalk-supabase-ssr-client",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "Supabase 서버 클라이언트 — 쿠키 어댑터로 세션 읽기",
+      "summary": "서버 컴포넌트/서버 액션에서 쓰는 Supabase 클라이언트. `@supabase/ssr` 의 `createServerClient` 에 Next 의 `cookies()` 를 `getAll`/`setAll` 어댑터로 물려, 요청 쿠키에 담긴 로그인 세션을 읽고 필요하면 갱신한다. 서버 컴포넌트에서 쿠키 쓰기가 막히는 경우를 try/catch 로 흡수하고 세션 갱신은 미들웨어에 맡기는 패턴까지 담겨 있다. 이 프로젝트(class-material viewer)의 `viewer/lib/supabase/server.ts` 와 거의 같은 구조라 비교해 보기 좋다.",
+      "subject": "supabase",
+      "concepts": [
+        "Supabase 연동",
+        "SSR",
+        "쿠키 어댑터",
+        "createServerClient",
+        "인증 세션"
+      ],
+      "file_path": "src/utils/supabase/server.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/utils/supabase/server.js",
+      "language": "javascript",
+      "code": "import { createServerClient } from \"@supabase/ssr\";\nimport { cookies } from \"next/headers\";\n\nexport const createClient = async () => {\n  const cookieStore = await cookies();\n\n  return createServerClient(\n    process.env.NEXT_PUBLIC_SUPABASE_URL,\n    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,\n    {\n      cookies: {\n        getAll() {\n          return cookieStore.getAll();\n        },\n        setAll(cookiesToSet) {\n          try {\n            cookiesToSet.forEach(({ name, value, options }) =>\n              cookieStore.set(name, value, options),\n            );\n          } catch {\n            // 서버 컴포넌트에서 호출된 경우 무시 (미들웨어가 갱신 담당)\n          }\n        },\n      },\n    },\n  );\n};",
+      "line_start": 1,
+      "line_end": 27,
+      "related_material_ids": [
+        "1NFB5KVAZTGy2GEmVAD80IGTl2xC5wpFh8kiGrPETHzY",
+        "1lihKRwRC3KHP4RXBvzGiuIG7bLEJRkgCilkk1LBSZPo"
+      ],
+      "authorship_note": "저장소 README에 이 파일(공통 인프라 계층)의 담당자는 별도로 명시돼 있지 않습니다. 추정하지 않습니다.",
+      "ord": 70
+    },
+    {
+      "id": "momentalk-next-middleware-session",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "미들웨어에서 Supabase 세션 갱신 (proxy 진입점)",
+      "summary": "모든 요청이 지나는 미들웨어(`src/proxy.js` 가 이 함수를 부른다)에서 `supabase.auth.getUser()` 를 호출해 만료 직전 토큰을 갱신하고, 새 쿠키를 요청과 응답 양쪽에 다시 심는다. 응답 객체를 setAll 안에서 다시 만드는 이유(쿠키 유실 방지)까지 코드로 드러난다. Next 미들웨어의 역할과 요청/응답 쿠키 전파를 이해하는 예시이며, class-material viewer 의 `viewer/proxy.ts` 자동 갱신 트리거와 같은 자리에 있는 코드다.",
+      "subject": "nextjs",
+      "concepts": [
+        "Next.js 미들웨어",
+        "세션 갱신",
+        "쿠키 전파",
+        "NextResponse",
+        "라우팅"
+      ],
+      "file_path": "src/utils/supabase/middleware.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/utils/supabase/middleware.js",
+      "language": "javascript",
+      "code": "import { createServerClient } from \"@supabase/ssr\";\nimport { NextResponse } from \"next/server\";\n\nexport async function updateSession(request) {\n  let supabaseResponse = NextResponse.next({ request });\n\n  const supabase = createServerClient(\n    process.env.NEXT_PUBLIC_SUPABASE_URL,\n    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,\n    {\n      cookies: {\n        getAll() {\n          return request.cookies.getAll();\n        },\n        setAll(cookiesToSet) {\n          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));\n          supabaseResponse = NextResponse.next({ request });\n          cookiesToSet.forEach(({ name, value, options }) =>\n            supabaseResponse.cookies.set(name, value, options),\n          );\n        },\n      },\n    },\n  );\n\n  await supabase.auth.getUser();\n\n  return supabaseResponse;\n}",
+      "line_start": 1,
+      "line_end": 29,
+      "related_material_ids": [
+        "1KC_ycwHIIj-Lx3RJNT2x7eSQ8mIMWQoJ7VGknVVy2DM",
+        "1NFB5KVAZTGy2GEmVAD80IGTl2xC5wpFh8kiGrPETHzY"
+      ],
+      "authorship_note": "저장소 README에 이 파일(공통 인프라 계층)의 담당자는 별도로 명시돼 있지 않습니다. 추정하지 않습니다.",
+      "ord": 80
+    },
+    {
+      "id": "momentalk-password-route-handler",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "비밀번호 변경 Route Handler — 서버측 검증과 신뢰 경계",
+      "summary": "`POST /api/auth/password` Route Handler. 클라이언트가 보낸 provider 값을 믿지 않고 서버가 Auth 사용자 객체를 다시 확인(hasEmailProvider), 현재 비밀번호 재인증은 세션 쿠키가 섞이지 않도록 `persistSession:false` 인 별도 클라이언트로 수행, 새 비밀번호 길이·중복 검증, 단계별 상태 코드(401/403/400/500)와 try/catch 마무리까지 — '검증은 화면이 아니라 서버에서' 원칙을 담은 실전 API 코드.",
+      "subject": "nextjs",
+      "concepts": [
+        "Route Handler",
+        "API",
+        "폼/입력 검증",
+        "인증",
+        "신뢰 경계",
+        "에러 처리"
+      ],
+      "file_path": "src/app/api/auth/password/route.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/app/api/auth/password/route.js",
+      "language": "javascript",
+      "code": "// 비밀번호 변경 API - 이메일 가입 계정의 현재 비밀번호 확인 및 비밀번호 변경 처리\nimport { NextResponse } from \"next/server\";\nimport { createClient as createSupabaseClient } from \"@supabase/supabase-js\";\nimport { createClient } from \"@/utils/supabase/server\";\n\nconst hasEmailProvider = user => {\n  const provider = user?.app_metadata?.provider;\n  const providers = user?.app_metadata?.providers;\n\n  return (\n    provider === \"email\" ||\n    (Array.isArray(providers) && providers.includes(\"email\"))\n  );\n};\n\nconst errorResponse = (message, status) =>\n  NextResponse.json({ ok: false, message }, { status });\n\nexport async function POST(request) {\n  try {\n    const supabase = await createClient();\n    const {\n      data: { user },\n      error: userError,\n    } = await supabase.auth.getUser();\n\n    if (userError || !user) {\n      return errorResponse(\"로그인이 필요합니다.\", 401);\n    }\n\n    // 클라이언트의 provider 값은 신뢰하지 않고 서버가 Auth 사용자 객체를 다시 확인합니다.\n    if (!hasEmailProvider(user)) {\n      return errorResponse(\n        \"이메일 가입 계정에서만 비밀번호를 변경할 수 있습니다.\",\n        403,\n      );\n    }\n\n    if (!user.email) {\n      return errorResponse(\"이메일 정보를 확인할 수 없습니다.\", 400);\n    }\n\n    const body = await request.json().catch(() => null);\n    const action = body?.action;\n    const currentPassword = body?.currentPassword;\n    const newPassword = body?.newPassword;\n\n    if (!currentPassword || typeof currentPassword !== \"string\") {\n      return errorResponse(\"현재 비밀번호를 입력해 주세요.\", 400);\n    }\n\n    // 비밀번호 검증은 현재 요청의 쿠키 기반 서버 클라이언트와 분리합니다.\n    // signInWithPassword는 새 세션을 발급하므로 같은 클라이언트에서 실행하면\n    // 확인/저장 요청 사이에 인증 쿠키가 교체되어 연속 요청이 실패할 수 있습니다.\n    const verifier = createSupabaseClient(\n      process.env.NEXT_PUBLIC_SUPABASE_URL,\n      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,\n      {\n        auth: {\n          persistSession: false,\n          autoRefreshToken: false,\n          detectSessionInUrl: false,\n        },\n      },\n    );\n\n    const { error: reauthError } = await verifier.auth.signInWithPassword({\n      email: user.email,\n      password: currentPassword,\n    });\n\n    if (reauthError) {\n      return errorResponse(\"현재 비밀번호가 일치하지 않습니다.\", 400);\n    }\n\n    if (action === \"verify\") {\n      return NextResponse.json({ ok: true });\n    }\n\n    if (action !== \"change\") {\n      return errorResponse(\"잘못된 요청입니다.\", 400);\n    }\n\n    if (\n      !newPassword ||\n      typeof newPassword !== \"string\" ||\n      newPassword.length < 6\n    ) {\n      return errorResponse(\"새 비밀번호는 6자 이상 입력해 주세요.\", 400);\n    }\n\n    if (currentPassword === newPassword) {\n      return errorResponse(\n        \"새 비밀번호는 현재 비밀번호와 다르게 입력해 주세요.\",\n        400,\n      );\n    }\n\n    // 재인증 이후에도 서버에서 provider를 다시 확인한 사용자 세션으로만 변경합니다.\n    const { error: updateError } = await supabase.auth.updateUser({\n      password: newPassword,\n    });\n\n    if (updateError) {\n      console.error(\"[auth] 비밀번호 변경 실패:\", updateError);\n      return errorResponse(\n        \"비밀번호 변경에 실패했습니다. 다시 시도해 주세요.\",\n        400,\n      );\n    }\n\n    return NextResponse.json({ ok: true });\n  } catch (error) {\n    console.error(\"[auth] 비밀번호 변경 API 오류:\", error);\n    return errorResponse(\"비밀번호 처리 중 오류가 발생했습니다.\", 500);\n  }\n}",
+      "line_start": 1,
+      "line_end": 117,
+      "related_material_ids": [
+        "1M7uAN4K5Bl9pfjU5K3Am3hBLhKNoctEkiiTKqTFeATc",
+        "11yovWterP-P7ykquVIBWJFJ9QOxWQTYBlrsspDs1ODU",
+        "1_YT0-5KoVzW2_Xm1uDPzKYNrnO35VEpRhPsKCGD6z8I"
+      ],
+      "authorship_note": "저장소 README 기준 '인증(로그인·회원가입·비밀번호)'은 조영빈 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 90
+    },
+    {
+      "id": "momentalk-community-crud-embed",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "게시판 조회 — PostgREST embed 로 조인 한 번에 + 행 매핑",
+      "summary": "커뮤니티 목록/상세를 그릴 때 posts 와 boards·profiles·post_tags·tags·post_likes 를 각각 왕복하지 않고 `POST_SELECT` 한 문자열의 중첩 select(PostgREST embed)로 한 번에 가져온다. `mapPost` 는 그 조인 결과를 화면용 형태로 변환하면서 배열/객체로 올 수 있는 관계를 `getSingleRelation` 으로 정규화한다. Supabase 로 CRUD 를 짤 때 조인과 형변환을 어디서 하는지 보여주는 예시. 같은 파일 뒤쪽에 getCommunityPosts/getCommunityPostById 등 실제 조회 함수가 있다.",
+      "subject": "supabase",
+      "concepts": [
+        "Supabase CRUD",
+        "PostgREST embed 조인",
+        "N+1 회피",
+        "데이터 매핑",
+        "게시판"
+      ],
+      "file_path": "src/lib/communityQueries.js",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/lib/communityQueries.js#L39-L99",
+      "language": "javascript",
+      "code": "/**\n * 게시글 목록에 필요한 관계를 PostgREST embed로 한 번에 조회합니다.\n * 목록 한 번을 그릴 때 posts / boards / profiles / post_tags / tags / post_likes를\n * 각각 왕복하지 않도록 기존 조인 조회 방식으로 유지합니다.\n */\nconst POST_SELECT = `\n  id, board_id, author_id, title, description,\n  content_html, content_text, status, is_ai_generated,\n  view_count, like_count, comment_count, created_at,\n  boards ( id, code, name, is_notice ),\n  profiles:profiles!posts_author_id_fkey ( id, nickname, role, avatar_url ),\n  post_tags ( tags ( id, name ) ),\n  post_likes ( user_id )\n`;\n\nconst throwQueryError = (context, error) => {\n  if (!error) return;\n\n  const message = [context, error.message, error.details, error.hint]\n    .filter(Boolean)\n    .join(\" | \");\n\n  const wrapped = new Error(message);\n  wrapped.cause = error;\n  throw wrapped;\n};\n\nconst getSingleRelation = relation =>\n  Array.isArray(relation) ? relation[0] : relation;\n\n/** Supabase 행을 커뮤니티 UI 데이터 형태로 변환합니다. */\nconst mapPost = (row, currentUserId = null) => {\n  const board = getSingleRelation(row.boards);\n  const profile = getSingleRelation(row.profiles);\n  const tags = (row.post_tags ?? [])\n    .map(link => getSingleRelation(link.tags)?.name)\n    .filter(Boolean);\n\n  return {\n    id: row.id,\n    isNotice: board?.is_notice === true,\n    board: board?.name ?? \"\",\n    title: row.title,\n    description: row.description ?? toDescription(row.content_text),\n    content: row.content_html,\n    authorId: row.author_id,\n    author: profile?.nickname ?? \"탈퇴한 사용자\",\n    authorRole: profile?.role === \"admin\" ? \"관리자\" : \"정회원\",\n    authorAvatarUrl: profile?.avatar_url ?? \"\",\n    createdAt: toDateLabel(row.created_at),\n    createdAtTimestamp: row.created_at ? Date.parse(row.created_at) : 0,\n    views: row.view_count ?? 0,\n    likes: row.like_count ?? 0,\n    commentsCount: row.comment_count ?? 0,\n    tags,\n    likedByCurrentUser:\n      Boolean(currentUserId) &&\n      (row.post_likes ?? []).some(like => like.user_id === currentUserId),\n    isAiGenerated: row.is_ai_generated === true,\n  };\n};",
+      "line_start": 39,
+      "line_end": 99,
+      "related_material_ids": [
+        "1CvaWGWqZBZGzsCgcT35oWZoK6uIV7JrXFgjI3lCYRX8",
+        "1mfJcfoBmjHjA6EXkPX2iy-Gww18Z-FxAFPz-XJvSyDk",
+        "1rsBbWw5onKYlPIrqH_o1gtVUq5wQPK9anoD1R6d4mwM",
+        "1kCaN-DWCp2QUo2Bq3yn4AQiDH8_tp--k8Gf6KUtScO0"
+      ],
+      "authorship_note": "저장소 README 기준 '커뮤니티(글쓰기·댓글·신고·관리자)'는 최정민 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 100
+    },
+    {
+      "id": "momentalk-signin-controlled-form",
+      "project": "momentalk",
+      "repo_url": "https://github.com/minho0391/est-fe-3rd-project",
+      "repo_ref": "004b4e856f95892d44759b8936e1e797c7216dc9",
+      "title": "로그인 폼 — 제어 컴포넌트, useState, 이벤트 처리, 리다이렉트",
+      "summary": "이메일 로그인 폼(SignInForm)의 상태·핸들러 부분. `value`/`onChange` 로 묶은 제어 컴포넌트, `handleSubmit` 의 `preventDefault` → try/catch/finally → `router.push(returnUrl)` 흐름, `useSearchParams` 로 `returnUrl` 을 읽어 로그인 후 원래 자리로 돌려보내는 처리, Supabase 오류 메시지를 사용자 문구로 바꾸는 부분까지. 폼 처리·이벤트·조건부 상태 표시 수업이 인증 화면에서 어떻게 쓰이는지 볼 수 있다.",
+      "subject": "supabase",
+      "concepts": [
+        "로그인/인증",
+        "제어 컴포넌트 폼",
+        "useState",
+        "이벤트 처리",
+        "리다이렉트",
+        "에러 처리",
+        "useSearchParams"
+      ],
+      "file_path": "src/app/sign-in/page.jsx",
+      "file_url": "https://github.com/minho0391/est-fe-3rd-project/blob/004b4e856f95892d44759b8936e1e797c7216dc9/src/app/sign-in/page.jsx#L55-L118",
+      "language": "jsx",
+      "code": "function SignInForm() {\n  const router = useRouter();\n  const searchParams = useSearchParams();\n  const returnUrl =\n    searchParams.get(\"returnUrl\") || searchParams.get(\"next\") || \"/\";\n  const authFailed = searchParams.get(\"error\") === \"auth_failed\";\n\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [error, setError] = useState(\n    authFailed ? \"인증에 실패했습니다. 다시 시도해 주세요.\" : \"\",\n  );\n  const [notice, setNotice] = useState(\"\");\n  const [loading, setLoading] = useState(false);\n\n  const handleSubmit = async e => {\n    e.preventDefault();\n    setError(\"\");\n    setNotice(\"\");\n    setLoading(true);\n\n    try {\n      await signInWithEmail({ email, password });\n      router.push(returnUrl);\n      router.refresh();\n    } catch (err) {\n      setError(\n        err.message === \"Invalid login credentials\"\n          ? \"이메일 또는 비밀번호가 올바르지 않습니다.\"\n          : \"로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.\",\n      );\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const handleGoogleSignIn = async () => {\n    setError(\"\");\n    setNotice(\"\");\n    try {\n      await signInWithGoogle(returnUrl);\n    } catch {\n      setError(\"구글 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.\");\n    }\n  };\n\n  const handleFindPassword = async () => {\n    setError(\"\");\n    setNotice(\"\");\n\n    if (!email) {\n      setError(\"비밀번호를 재설정할 이메일을 먼저 입력해 주세요.\");\n      return;\n    }\n\n    try {\n      await resetPassword(email);\n      setNotice(\"비밀번호 재설정 메일을 보냈습니다. 메일함을 확인해 주세요.\");\n    } catch {\n      setError(\n        \"비밀번호 재설정 메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.\",\n      );\n    }\n  };",
+      "line_start": 55,
+      "line_end": 118,
+      "related_material_ids": [
+        "1_YT0-5KoVzW2_Xm1uDPzKYNrnO35VEpRhPsKCGD6z8I",
+        "1WMmAYKcERJ0YfJR4Hxpp181m28O9-SuycckMF6XcwHE",
+        "11yovWterP-P7ykquVIBWJFJ9QOxWQTYBlrsspDs1ODU",
+        "1JLvhOpeNX8-EdPkEp1eYgqQP4XmiVI6CEc3Tg9EQpro"
+      ],
+      "authorship_note": "저장소 README 기준 '인증(로그인·회원가입·비밀번호)'은 조영빈 담당 영역입니다. README의 역할 표는 기능 영역 단위이며, 이 파일의 실제 작성자는 저장소 커밋 이력으로 확인해야 합니다.",
+      "ord": 110
+    }
+  ]
+}

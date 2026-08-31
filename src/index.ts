@@ -50,6 +50,10 @@ import {
 import { PRIORITY_LABEL, PRIORITY_MEANING } from "./study/study-builder.ts";
 import { syncSupabase } from "./sync/sync-runner.ts";
 import { printVerifyReport, verifySupabase } from "./sync/verify.ts";
+import {
+  printProjectExamplesReport,
+  syncProjectExamples,
+} from "./sync/project-examples-runner.ts";
 import { runAutoRefresh } from "./refresh/auto-refresh.ts";
 import * as log from "./utils/logger.ts";
 
@@ -1134,6 +1138,24 @@ async function runSyncSupabase(): Promise<void> {
 }
 
 /**
+ * sync-project-examples 명령 — 학습용 실전 예제(project-examples/*.json)를 Supabase
+ * `project_examples` 테이블로 upsert합니다.
+ *
+ * **수업자료 파이프라인과 분리된 경로입니다.** refresh / ci-refresh / sync-supabase 와
+ * 무관하며, 하루 첫 접속 자동 갱신은 이 테이블을 건드리지 않습니다. 예제 JSON을
+ * 추가·수정한 뒤 사람이 직접 실행합니다. upsert 전용(DELETE 없음)입니다.
+ */
+async function runSyncProjectExamples(): Promise<void> {
+  log.step("학습용 실전 예제를 Supabase 로 올립니다");
+  log.detail("수업자료 파이프라인과 분리된 경로입니다 — refresh / sync-supabase 와 무관합니다");
+  log.detail("공개 GitHub 저장소의 코드 발췌본이며 upsert(on_conflict=id)만 합니다");
+
+  const report = await syncProjectExamples();
+  const hasProblem = printProjectExamplesReport(report);
+  if (hasProblem) process.exitCode = 1;
+}
+
+/**
  * ci-refresh 명령 — 24시간 자동 갱신이 GitHub Actions에서 실제로 부르는 명령입니다.
  *
  * 사람이 직접 실행할 일은 거의 없습니다 (직접 갱신하려면 평소처럼 `npm run refresh` 를
@@ -1177,6 +1199,7 @@ function showHelp(): void {
   backup         다시 만들기 비싼 데이터를 챙겨 둡니다
   restore        백업으로 되돌립니다
   sync-supabase  data/ 산출물을 Supabase 7개 테이블로 올리고 대조 검증합니다
+  sync-project-examples  학습용 실전 예제(project-examples/*.json)를 project_examples 테이블로 올립니다 (수업자료 파이프라인과 분리)
   ci-refresh     24시간 자동 갱신이 GitHub Actions에서 부르는 명령 (사람이 직접 쓸 일은 거의 없습니다)
   refresh        ★ 위 과정을 올바른 순서로 한 번에 실행합니다 (평소에는 이것만)
   help           이 도움말을 보여줍니다
@@ -1255,6 +1278,10 @@ sync-supabase 필요 환경변수:
   SUPABASE_SERVICE_ROLE_KEY      Supabase 대시보드 → Settings → API → service_role
   예) node --env-file=.env.local --env-file=viewer/.env.local src/index.ts sync-supabase
 
+sync-project-examples 필요 환경변수:
+  sync-supabase 와 같습니다 (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  예) node --env-file=.env.local --env-file=viewer/.env.local src/index.ts sync-project-examples
+
 ci-refresh 필요 환경변수 (GitHub Actions 전용, .github/workflows/material-refresh.yml 참고):
   REFRESH_CLAIM_TOKEN            Vercel이 claim에 성공했을 때 발급한 토큰
   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   sync-supabase 와 같습니다
@@ -1320,6 +1347,9 @@ async function main(): Promise<void> {
       break;
     case "sync-supabase":
       await runSyncSupabase();
+      break;
+    case "sync-project-examples":
+      await runSyncProjectExamples();
       break;
     case "ci-refresh":
       await runCiRefresh();

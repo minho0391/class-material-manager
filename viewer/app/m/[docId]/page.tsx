@@ -24,6 +24,7 @@ import Typography from "@mui/material/Typography";
 
 import { Markdown } from "@/components/Markdown";
 import { NavChip, NavListItem } from "@/components/nav";
+import { getProjectExamplesForMaterial } from "@/lib/projectExamples";
 import { StudyCard } from "@/components/StudyCard";
 import { PracticeCode } from "@/components/PracticeCode";
 import { TableOfContents } from "@/components/TableOfContents";
@@ -65,6 +66,8 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
   // 이 자료에서 다룬 기술이 지금도 유효한지 (13단계). 없으면 영역이 나오지 않습니다.
   const checks = await getComparisonsFor(material.docId);
   const study = await getStudyFor(material.docId);
+  // 이 자료의 개념과 연결된 실전 프로젝트 예제 (있을 때만 영역이 나옵니다).
+  const examples = await getProjectExamplesForMaterial(material.docId);
   // 급한 것부터 보여 줍니다. 8건만 보여 주므로, 무게 순서가 곧 무엇이 잘리느냐를 정합니다.
   const SEVERITY_ORDER = ["HIGH", "MEDIUM", "LOW", "NONE"];
   const notable = checks
@@ -81,7 +84,9 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
   const practiceCount = learning?.practice.length ?? 0;
   const reviewCount = notable.length;
   const docsCount = related.length;
-  const hasSidePanel = headings.length > 0 || practiceCount > 0 || reviewCount > 0 || docsCount > 0;
+  const exampleCount = examples.length;
+  const hasSidePanel =
+    headings.length > 0 || practiceCount > 0 || reviewCount > 0 || docsCount > 0 || exampleCount > 0;
 
   return (
     // 전체 폭을 제한해 아주 넓은 화면에서 본문과 오른쪽 패널 사이가
@@ -263,6 +268,41 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
         </Box>
       )}
 
+      {/* ── 4. 관련 실전 예제 — 연결된 것이 있을 때만 ── */}
+      {examples.length > 0 && (
+        <Box id="project-examples" sx={{ mt: 5, maxWidth: "82ch" }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+            🧩 이 개념을 쓴 실전 프로젝트 코드
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+            수업자료를 대신하지 않습니다. 배운 개념이 실제 팀 프로젝트에서 어떻게 쓰였는지 보는 자리입니다.
+          </Typography>
+          <Paper variant="outlined">
+            <List dense disablePadding>
+              {examples.map((example) => (
+                <NavListItem key={example.id} href={`/examples/${encodeURIComponent(example.id)}`}>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+                        <Box component="span">{example.title}</Box>
+                        <Chip size="small" variant="outlined" label={example.project} />
+                      </Box>
+                    }
+                    secondary={example.filePath}
+                    slotProps={{
+                      primary: { sx: { fontSize: "0.875rem" } },
+                      secondary: {
+                        sx: { fontSize: "0.72rem", fontFamily: "'D2Coding', 'Consolas', monospace" },
+                      },
+                    }}
+                  />
+                </NavListItem>
+              ))}
+            </List>
+          </Paper>
+        </Box>
+      )}
+
       <Divider sx={{ my: 4, maxWidth: "82ch" }} />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: "82ch" }}>
         이 화면은 읽기 전용입니다. 내용을 고치려면{" "}
@@ -298,7 +338,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
             </Paper>
           )}
 
-          {(practiceCount > 0 || reviewCount > 0 || docsCount > 0) && (
+          {(practiceCount > 0 || reviewCount > 0 || docsCount > 0 || exampleCount > 0) && (
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 1 }}>
                 관련 정보
@@ -317,6 +357,11 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
                 {docsCount > 0 && (
                   <Link href="#official-docs" underline="hover" variant="body2" sx={{ color: "text.primary" }}>
                     📘 공식 문서 {docsCount}건
+                  </Link>
+                )}
+                {exampleCount > 0 && (
+                  <Link href="#project-examples" underline="hover" variant="body2" sx={{ color: "text.primary" }}>
+                    🧩 실전 예제 {exampleCount}건
                   </Link>
                 )}
               </Box>

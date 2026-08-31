@@ -86,6 +86,7 @@ test.describe("화면이 뜬다", () => {
     ["통합 학습자료", "/learn"],
     ["수업 방식 점검", "/compare"],
     ["다시 공부하기", "/study"],
+    ["실전 예제", "/examples"],
   ] as const) {
     test(`${name} 화면이 뜬다`, async ({ page }) => {
       const errors = watchErrors(page);
@@ -141,6 +142,54 @@ test.describe("눌러서 옮겨 간다", () => {
 
     await expect(page).toHaveURL(/\/m\//);
     await expect(page.locator("h1")).toHaveCount(1);
+  });
+
+  test("실전 예제 하나를 열어 본다", async ({ page }) => {
+    const errors = watchErrors(page);
+
+    await page.goto("/examples");
+    await settled(page);
+
+    const example = page.locator('a[href^="/examples/"]').first();
+    if ((await example.count()) === 0) test.skip(true, "아직 실전 예제가 없어 건너뜁니다");
+
+    await example.click();
+
+    await expect(page).toHaveURL(/\/examples\//);
+    await expect(page.locator("h1")).toHaveCount(1);
+    // 코드 블록이 원문 그대로 렌더된다
+    await expect(page.locator("pre code").first()).toBeVisible();
+
+    expect(errors, `브라우저 오류: ${errors.join(" | ")}`).toEqual([]);
+  });
+
+  test("예제 상세에서 연결된 수업자료로 넘어간다", async ({ page }) => {
+    await page.goto("/examples/momentalk-chosung-quiz-state-machine");
+
+    // 예제 데이터가 아직 없으면 건너뜁니다 (DB·파일 둘 다 없음).
+    if ((await page.getByRole("heading", { level: 1 }).count()) === 0) {
+      test.skip(true, "실전 예제 데이터가 없어 건너뜁니다");
+    }
+
+    const materialLink = page.locator('a[href^="/m/"]').first();
+    if ((await materialLink.count()) === 0) test.skip(true, "연결된 수업자료가 없어 건너뜁니다");
+
+    await materialLink.click();
+    await expect(page).toHaveURL(/\/m\//);
+    await expect(page.locator("h1")).toHaveCount(1);
+  });
+
+  test("연결된 수업자료 상세에 '관련 실전 예제' 영역이 뜬다", async ({ page }) => {
+    // momentalk-chosung-quiz-state-machine 의 related_material_ids 에 든 자료.
+    const res = await page.goto("/m/1JLvhOpeNX8-EdPkEp1eYgqQP4XmiVI6CEc3Tg9EQpro");
+    if ((res?.status() ?? 0) === 404) test.skip(true, "이 자료가 없는 데이터셋이라 건너뜁니다");
+
+    await expect(page.locator("#project-examples")).toBeVisible();
+    const exampleLink = page.locator('#project-examples a[href^="/examples/"]').first();
+    await expect(exampleLink).toBeVisible();
+
+    await exampleLink.click();
+    await expect(page).toHaveURL(/\/examples\//);
   });
 });
 

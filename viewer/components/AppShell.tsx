@@ -250,6 +250,22 @@ export function AppShell({
             }}
           />
         </ListItemButton>
+
+        <ListItemButton
+          component={NextLink}
+          href="/examples"
+          selected={pathname === "/examples" || pathname.startsWith("/examples/")}
+          onClick={() => setOpen(false)}
+        >
+          <ListItemText
+            primary="🧩 실전 예제"
+            secondary="개념을 실제 프로젝트 코드로"
+            slotProps={{
+              primary: { sx: { fontSize: "0.9rem", fontWeight: 600 } },
+              secondary: { sx: { fontSize: "0.7rem" } },
+            }}
+          />
+        </ListItemButton>
       </List>
 
       <Divider />
