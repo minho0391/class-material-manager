@@ -42,10 +42,12 @@ const LIMIT = 40;
 export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ priority?: string; subject?: string }>;
+  searchParams: Promise<{ priority?: string; subject?: string; include?: string }>;
 }) {
-  const { priority, subject } = await searchParams;
-  const { guides, materials, generatedAt } = await getStudyGuides();
+  const { priority, subject, include } = await searchParams;
+  // 기본값은 사용 중단 항목을 뺀 목록입니다. 원본은 그대로 있고 /compare 에서 전부 볼 수 있습니다.
+  const includeDeprecated = include === "deprecated";
+  const { guides, materials, deprecatedGuides, generatedAt } = await getStudyGuides({ includeDeprecated });
 
   if (guides.length === 0) {
     return (
@@ -96,8 +98,18 @@ export default async function StudyPage({
     const parts: string[] = [];
     if (nextPriority) parts.push(`priority=${nextPriority}`);
     if (nextSubject) parts.push(`subject=${encodeURIComponent(nextSubject)}`);
+    if (includeDeprecated) parts.push("include=deprecated");
     return parts.length > 0 ? `/study?${parts.join("&")}` : "/study";
   };
+
+  // 사용 중단 항목 토글 링크 — 지금 고른 필터는 유지합니다.
+  const toggleDeprecatedLink = (() => {
+    const parts: string[] = [];
+    if (selected) parts.push(`priority=${selected}`);
+    if (selectedSubject) parts.push(`subject=${encodeURIComponent(selectedSubject)}`);
+    if (!includeDeprecated) parts.push("include=deprecated");
+    return parts.length > 0 ? `/study?${parts.join("&")}` : "/study";
+  })();
 
   return (
     <Box>
@@ -107,10 +119,35 @@ export default async function StudyPage({
       <Typography color="text.secondary" sx={{ mb: 1 }}>
         수업에서 배운 것을 <strong>지금 기준으로 다시 볼 때</strong> 무엇을 어떻게 보면 되는지 정리했습니다.
       </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 3 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
         설명은 공식 문서가 밝힌 상태와 package.json 의 버전에서만 나옵니다. 근거가 없는 말은 적지 않습니다.
         {generatedAt && ` · 마지막 정리 ${generatedAt.slice(0, 10)}`}
       </Typography>
+
+      {/*
+        ── 사용 중단 항목은 기본 목록에서 뺍니다 ──
+        원본 데이터와 판정은 그대로 있습니다. 여기서는 "다시 공부" 목록에만 넣지 않습니다.
+        전체·상태·근거는 /compare 에서, 이 목록 안에서 보고 싶으면 아래 토글로.
+      */}
+      {(deprecatedGuides.length > 0 || includeDeprecated) && (
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5, mb: 3, display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            {includeDeprecated
+              ? `사용 중단으로 판정된 ${deprecatedGuides.length}건을 목록에 포함해 보고 있습니다.`
+              : `공식 문서가 사용 중단을 밝힌 ${deprecatedGuides.length}건은 이 목록에서 뺐습니다. 원본 자료와 판정은 그대로 있습니다.`}
+          </Typography>
+          <NavChip
+            href={toggleDeprecatedLink}
+            size="small"
+            variant="outlined"
+            label={includeDeprecated ? "목록에서 다시 빼기" : "이 목록에서도 보기"}
+          />
+          <NavChip href="/compare?status=DEPRECATED" size="small" variant="outlined" label="점검 결과에서 보기 →" />
+        </Paper>
+      )}
 
       {/* ── 복습 필터 ── */}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1, alignItems: "center" }}>

@@ -26,6 +26,7 @@ import {
   COMPARISON_MEANING,
   SEVERITY_LABEL,
   getComparisons,
+  isDeprecatedComparison,
   subjectLabel,
   type ComparisonItem,
 } from "@/lib/data";
@@ -63,8 +64,12 @@ const SEVERITY_ORDER = ["HIGH", "MEDIUM", "LOW", "NONE"];
  *
  * **공식 문서가 말한 것만 보여 줍니다.** 우리가 지어낸 권장안은 여기 오지 않습니다.
  */
-function PatternShift({ item }: { item: ComparisonItem }) {
-  if (!item.oldPattern && !item.currentPattern && !item.recommendedAlternative) return null;
+function PatternShift({ item, hideRecommended = false }: { item: ComparisonItem; hideRecommended?: boolean }) {
+  // 사용 중단 항목은 DeprecationDetails 가 대체 방식을 이미 보여 주므로 여기서는 생략합니다.
+  const showRecommended =
+    !hideRecommended && Boolean(item.recommendedAlternative) && item.recommendedAlternative !== item.currentPattern;
+
+  if (!item.oldPattern && !item.currentPattern && !showRecommended) return null;
 
   const code = { fontFamily: "'D2Coding', monospace", wordBreak: "break-word" as const };
 
@@ -80,11 +85,69 @@ function PatternShift({ item }: { item: ComparisonItem }) {
           지금은 <strong>{item.currentPattern}</strong>
         </Typography>
       )}
-      {item.recommendedAlternative && item.recommendedAlternative !== item.currentPattern && (
+      {showRecommended && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
           공식 문서가 이렇게 적어 두었습니다 — {item.recommendedAlternative}
         </Typography>
       )}
+    </Box>
+  );
+}
+
+/**
+ * 사용 중단 항목의 요약 상자 — /compare 에서 계속 보여 줍니다.
+ *
+ * 보여 주는 것: ① 사용 중단됨/제거됨 상태 ② 언제부터·어느 버전부터(**근거가 있을 때만**)
+ * ③ 현재 권장 대체 방식 ④ 공식 근거 링크. ②는 지금 파이프라인(MDN)에 근거가 없어
+ * 보통 나오지 않습니다 — 없는 날짜/버전을 지어내지 않고, 값이 들어오면 그때 나옵니다.
+ */
+function DeprecationDetails({ item }: { item: ComparisonItem }) {
+  const removed = item.changeType === "REMOVED";
+  const since = item.official?.deprecatedSince;
+  const version = item.official?.deprecatedVersion;
+  const replacement = item.recommendedAlternative ?? item.currentPattern;
+  const officialHref = item.official ? safeHref(item.official.sourceUrl) : undefined;
+
+  return (
+    <Box
+      sx={{
+        mb: 1.5,
+        p: 1.5,
+        borderRadius: 1,
+        border: "1px solid",
+        borderColor: "error.main",
+        bgcolor: "action.hover",
+      }}
+    >
+      <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>
+        {removed ? "🚫 제거됨" : "🚫 사용 중단됨"}
+      </Typography>
+
+      {(since || version) && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+          {since && `이 시점부터: ${since}`}
+          {since && version && " · "}
+          {version && `이 버전부터: ${version}`}
+        </Typography>
+      )}
+
+      {replacement && (
+        <Typography variant="caption" sx={{ display: "block", mt: 0.5, wordBreak: "break-word" }}>
+          <strong>현재 권장 대체 방식</strong> — {replacement}
+        </Typography>
+      )}
+
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+        공식 근거:{" "}
+        {officialHref ? (
+          <Link href={officialHref} target="_blank" rel="noopener noreferrer">
+            {item.official?.title || "공식 문서"}
+          </Link>
+        ) : (
+          "근거 목록 참고"
+        )}
+        {item.official?.fetchedAt && ` · 공식 문서 확인일 ${item.official.fetchedAt}`}
+      </Typography>
     </Box>
   );
 }
@@ -140,7 +203,9 @@ function ItemCard({ item }: { item: ComparisonItem }) {
         </Typography>
       )}
 
-      <PatternShift item={item} />
+      {isDeprecatedComparison(item) && <DeprecationDetails item={item} />}
+
+      <PatternShift item={item} hideRecommended={isDeprecatedComparison(item)} />
 
       {/* ── 버전 ── */}
       {item.versions && (

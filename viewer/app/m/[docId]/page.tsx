@@ -203,7 +203,28 @@ export default async function MaterialPage({ params }: { params: Promise<{ docId
         </Box>
       )}
 
-      {/* ── 2-3. 다시 공부하기 — 손볼 것이 있을 때만 ── (15단계) */}
+      {/*
+        ── 사용 중단된 내용이 섞여 있으면 먼저 알립니다 ──
+        원본 자료(본문·실습 코드·원본 링크)는 그대로 둡니다. 다만 "다시 공부" 대상으로는
+        추천하지 않으므로, 아래 복습 카드에서 빼고 여기서 한 줄로만 짚어 둡니다.
+      */}
+      {study.deprecatedGuides.length > 0 && (
+        <Box id="deprecated-note" sx={{ mt: 5, maxWidth: "82ch" }}>
+          <Paper variant="outlined" sx={{ p: 2, borderLeft: "4px solid", borderLeftColor: "error.main", borderColor: "error.main" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              ⚠ 이 자료에는 사용 중단된 내용이 있습니다 ({study.deprecatedGuides.length}건)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              {study.deprecatedGuides.map((guide) => guide.topic).join(", ")} — 공식 문서가 더 이상 쓰지 말라고 밝혔습니다.
+              원본 수업자료와 실습 코드는 그대로 볼 수 있지만, 새로 쓰는 코드에는 그대로 따라 쓰지 마세요.
+              아래 “지금도 그대로 써도 되나” 와 수업 방식 점검에서 근거·대체 방식을 확인하세요.
+            </Typography>
+            <NavChip href="/compare?status=DEPRECATED" size="small" variant="outlined" label="점검 결과에서 보기 →" />
+          </Paper>
+        </Box>
+      )}
+
+      {/* ── 2-3. 다시 공부하기 — 손볼 것이 있을 때만 ── (15단계, 사용 중단 항목은 뺀 목록) */}
       {study.material && study.material.priority !== "KEEP" && (
         <Box id="study-priority" sx={{ mt: 5, maxWidth: "82ch" }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>

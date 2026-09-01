@@ -859,6 +859,12 @@ export interface LearningListItem {
   bestConfidence: "high" | "medium";
   /** 어떤 실습파일이 붙어 있는지 (목록에 이름만 보여줍니다) */
   zipTitles: string[];
+  /**
+   * 이 자료에 사용 중단으로 판정된 주제가 섞여 있는지.
+   * true 여도 목록에서 빼지는 않습니다 — 원본 자료 연결은 유지하고, "깨끗한 학습 대상"처럼
+   * 보이지 않도록 표시만 답니다. 근거·대체 방식은 자료 상세와 /compare 에 있습니다.
+   */
+  hasDeprecated: boolean;
 }
 
 /**
@@ -869,6 +875,14 @@ export interface LearningListItem {
 export async function getLearningList(): Promise<LearningListItem[]> {
   const cache = await loadLearning();
   if (!cache) return [];
+
+  // 자료별 사용 중단 여부 — 원본은 그대로 두고 목록에 표시만 답니다.
+  const comparisons = await loadComparisons();
+  const deprecatedMaterialIds = new Set<string>();
+  for (const item of comparisons?.items ?? []) {
+    if (!isDeprecatedComparison(item)) continue;
+    for (const lesson of [...item.lessons, ...item.taughtIn]) deprecatedMaterialIds.add(lesson.materialId);
+  }
 
   return cache.documents
     .map((document) => ({
@@ -883,6 +897,7 @@ export async function getLearningList(): Promise<LearningListItem[]> {
         ? ("high" as const)
         : ("medium" as const),
       zipTitles: document.practice.map((item) => item.zipTitle),
+      hasDeprecated: deprecatedMaterialIds.has(document.materialId),
     }))
     .sort(
       (a, b) => a.subject.localeCompare(b.subject) || a.title.localeCompare(b.title, "ko"),
@@ -932,6 +947,15 @@ export interface ComparisonItem {
     fetchedAt: string;
     contentHash: string;
     docStatus: string[];
+    /**
+     * 공식 문서가 "언제부터" 사용 중단인지 밝힌 경우에만 채워집니다 (ISO 날짜 또는 연도).
+     * 지금 파이프라인(MDN front matter)에는 이 값을 주는 근거가 없어 항상 비어 있습니다.
+     * 근거 있는 값을 넣을 자리만 마련해 둡니다 — 없는 날짜를 지어내지 않습니다.
+     * (comparisons.official jsonb 에 그대로 들어오므로 새 컬럼이 필요 없습니다.)
+     */
+    deprecatedSince?: string;
+    /** 공식 문서가 "어느 버전부터" 사용 중단·제거인지 밝힌 경우에만. 위와 같은 이유로 보통 비어 있습니다. */
+    deprecatedVersion?: string;
   };
   versions?: {
     atLesson: string;
@@ -1346,39 +1370,130 @@ async function loadStudy(): Promise<StudyCache | null> {
   }
 }
 
-/** 학습 설명 전체 */
-export async function getStudyGuides(): Promise<{
+// ─────────────────────────────────────────────────────────────
+// 사용 중단(deprecated/removed) 항목 걸러 내기
+//
+// 원본 데이터(comparisons·study-guides·DB)는 **그대로 둡니다.** 여기서 하는 일은
+// "다시 공부하기"·"통합 학습자료" 화면의 **기본 목록에서만** 사용 중단 항목을 빼는 것입니다.
+//   · /compare 는 계속 전부 보여 줍니다 (걸러 내지 않습니다).
+//   · /study 는 ?include=deprecated 로 다시 볼 수 있습니다.
+//   · 판정 자체(status=DEPRECATED 등)와 근거는 보존됩니다.
+// ─────────────────────────────────────────────────────────────
+
+/** 이 학습 설명이 "사용 중단·제거" 로 판정된 것인지 — 한곳에서만 정합니다. */
+export function isDeprecatedStudy(guide: Pick<StudyGuide, "status" | "changeType">): boolean {
+  return (
+    guide.status === "DEPRECATED" ||
+    guide.changeType === "DEPRECATED" ||
+    guide.changeType === "REMOVED"
+  );
+}
+
+/** 이 비교 항목이 "사용 중단·제거" 로 판정된 것인지. */
+export function isDeprecatedComparison(item: Pick<ComparisonItem, "status" | "changeType">): boolean {
+  return item.status === "DEPRECATED" || item.changeType === "DEPRECATED" || item.changeType === "REMOVED";
+}
+
+/**
+ * 자료별 요약(StudyMaterial)에서 사용 중단 주제를 뺀 모습으로 다시 계산합니다.
+ *
+ * 자료 하나가 사용 중단 주제 하나 때문에 통째로 "새 방식으로 교체" 로 잡히던 것을,
+ * **나머지 주제 기준**으로 되돌립니다. 사용 중단을 뺀 뒤 손볼 것이 없으면(전부 KEEP) null.
+ */
+function withoutDeprecatedTopics(
+  material: StudyMaterial,
+  deprecatedComparisonIds: Set<string>,
+): StudyMaterial | null {
+  const topics = material.topics.filter((topic) => !deprecatedComparisonIds.has(topic.comparisonId));
+
+  const counts: Record<LearningPriority, number> = { KEEP: 0, CHECK: 0, RELEARN: 0, REPLACE: 0 };
+  for (const topic of topics) counts[topic.priority] += 1;
+
+  const priority = PRIORITY_ORDER.find((level) => counts[level] > 0) ?? "KEEP";
+
+  // 사용 중단을 빼고 나니 손볼 것이 하나도 없으면(주제가 없거나 전부 KEEP) 목록에서 뺍니다.
+  if (topics.every((topic) => topic.priority === "KEEP")) return null;
+
+  return { ...material, topics, counts, priority };
+}
+
+/** loadStudy 캐시에서 사용 중단으로 판정된 comparisonId 집합을 만듭니다. */
+function deprecatedIdsOf(cache: StudyCache): Set<string> {
+  return new Set(cache.guides.filter((guide) => isDeprecatedStudy(guide)).map((guide) => guide.comparisonId));
+}
+
+/**
+ * 학습 설명 전체.
+ *
+ * 기본값은 **사용 중단 항목을 뺀** 목록입니다. 뺀 것은 `deprecatedGuides` 로 따로 돌려줍니다
+ * (원본은 보존 · /study 에서 토글로 다시 볼 수 있게). `includeDeprecated` 를 주면 예전처럼 전부.
+ */
+export async function getStudyGuides(
+  options: { includeDeprecated?: boolean } = {},
+): Promise<{
   guides: StudyGuide[];
   materials: StudyMaterial[];
+  deprecatedGuides: StudyGuide[];
   generatedAt: string;
 }> {
   const cache = await loadStudy();
-  return {
-    guides: cache?.guides ?? [],
-    materials: cache?.materials ?? [],
-    generatedAt: cache?.generatedAt ?? "",
-  };
+  if (!cache) return { guides: [], materials: [], deprecatedGuides: [], generatedAt: "" };
+
+  const deprecatedGuides = cache.guides.filter((guide) => isDeprecatedStudy(guide));
+
+  if (options.includeDeprecated) {
+    return { guides: cache.guides, materials: cache.materials, deprecatedGuides, generatedAt: cache.generatedAt };
+  }
+
+  const deprecatedIds = deprecatedIdsOf(cache);
+  const guides = cache.guides.filter((guide) => !isDeprecatedStudy(guide));
+  const materials = cache.materials
+    .map((material) => withoutDeprecatedTopics(material, deprecatedIds))
+    .filter((material): material is StudyMaterial => material !== null);
+
+  return { guides, materials, deprecatedGuides, generatedAt: cache.generatedAt };
 }
 
-/** 수업자료 하나에 딸린 학습 설명 (급한 것부터) */
+/**
+ * 수업자료 하나에 딸린 학습 설명 (급한 것부터).
+ *
+ * 사용 중단 항목은 `deprecatedGuides` 로 분리해 돌려줍니다 — 상세 화면에서 "다시 공부" 대상으로
+ * 강조하지 않되, 원본 자료 연결은 유지하려는 것입니다. `material` 의 우선순위도 사용 중단을
+ * 뺀 기준으로 다시 계산합니다.
+ */
 export async function getStudyFor(docId: string): Promise<{
   guides: StudyGuide[];
+  deprecatedGuides: StudyGuide[];
   material: StudyMaterial | null;
 }> {
   const cache = await loadStudy();
-  return {
-    guides: cache?.byMaterial.get(docId) ?? [],
-    material: cache?.materialById.get(docId) ?? null,
-  };
+  if (!cache) return { guides: [], deprecatedGuides: [], material: null };
+
+  const all = cache.byMaterial.get(docId) ?? [];
+  const guides = all.filter((guide) => !isDeprecatedStudy(guide));
+  const deprecatedGuides = all.filter((guide) => isDeprecatedStudy(guide));
+
+  const rawMaterial = cache.materialById.get(docId) ?? null;
+  const material = rawMaterial
+    ? withoutDeprecatedTopics(rawMaterial, deprecatedIdsOf(cache))
+    : null;
+
+  return { guides, deprecatedGuides, material };
 }
 
-/** 과목 하나의 복습 상태 — 과목 화면에서 "여기 뭐부터 볼까" 에 답합니다 */
+/** 과목 하나의 복습 상태 — 과목 화면에서 "여기 뭐부터 볼까" 에 답합니다 (사용 중단 제외). */
 export async function getStudyForSubject(subject: string): Promise<{
   materials: StudyMaterial[];
   counts: Record<string, number>;
 }> {
   const cache = await loadStudy();
-  const materials = (cache?.materials ?? []).filter((material) => material.subject === subject);
+  if (!cache) return { materials: [], counts: {} };
+
+  const deprecatedIds = deprecatedIdsOf(cache);
+  const materials = cache.materials
+    .filter((material) => material.subject === subject)
+    .map((material) => withoutDeprecatedTopics(material, deprecatedIds))
+    .filter((material): material is StudyMaterial => material !== null);
 
   const counts: Record<string, number> = {};
   for (const material of materials) {

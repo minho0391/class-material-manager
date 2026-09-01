@@ -128,6 +128,10 @@ export default async function LearnPage() {
                       color={item.bestConfidence === "high" ? "primary" : "default"}
                       variant={item.bestConfidence === "high" ? "filled" : "outlined"}
                     />
+                    {/* 원본 연결은 그대로 두되, 사용 중단 내용이 섞여 있으면 짚어 둡니다. */}
+                    {item.hasDeprecated && (
+                      <Chip size="small" color="error" variant="outlined" label="사용 중단 포함" />
+                    )}
                   </Box>
 
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
