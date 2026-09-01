@@ -192,8 +192,9 @@ async function resolveSource(): Promise<ResolvedSource> {
     return resolvedSource;
   }
 
+  const configured = dbConfigured();
   let dbMaterials: Material[] | null = null;
-  if (dbConfigured()) {
+  if (configured) {
     try {
       dbMaterials = await fetchMaterialsFromDb();
     } catch (error) {
@@ -208,8 +209,24 @@ async function resolveSource(): Promise<ResolvedSource> {
   // 행이 1건 이상 있을 때만 DB 를 씁니다. 0건은 "아직 sync 안 함" 으로 보고 파일로 갑니다
   // (sync 는 upsert 만 하고 DELETE 가 없어, 0건이 "비운 것" 을 뜻하지 않습니다).
   const source: "db" | "file" = dbMaterials && dbMaterials.length > 0 ? "db" : "file";
-  resolvedSource = { source, dbMaterials, at: Date.now() };
-  return resolvedSource;
+  const resolved: ResolvedSource = { source, dbMaterials, at: Date.now() };
+
+  // ── 이 30초 모듈 캐시는 "모든 요청에서 답이 같을 때"만 안전합니다 ──
+  //
+  // DB 가 설정돼 있는데 "file" 로 떨어졌다면, 그 요청에 로그인 세션이 없어 RLS 가
+  // 막은 것입니다(fetchMaterialsFromDb 가 permission denied 로 던짐). 이것은 요청마다
+  // 다른, 세션에 종속된 결과입니다. 배포 환경에는 로컬 data/ 도 없어 이 경우 홈이
+  // "자료 없음" 이 됩니다.
+  //
+  // 그 결과를 모듈 캐시에 담으면 — 로그인 직전 /login 렌더가 이 경로를 매번 지나므로 —
+  // 곧바로 이어지는 "로그인된" 요청까지 최대 30초 동안 "자료 없음" 을 물려받습니다.
+  // 그래서 이때는 캐시하지 않고, 각 요청이 자기 세션으로 다시 판단하게 둡니다.
+  // "db" 성공 결과(로그인 사용자 모두에게 동일)와, DB 미설정 환경의 "file" 결정
+  // (세션과 무관하게 안정적)만 공유 캐시에 담습니다.
+  if (source === "db" || !configured) {
+    resolvedSource = resolved;
+  }
+  return resolved;
 }
 
 /** 참고자료(공식 문서 요약)를 전부 읽습니다. DB 우선, 없으면 로컬 파일. */
